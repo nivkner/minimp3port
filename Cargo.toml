@@ -1,0 +1,11 @@
+[package]
+name = "minimp3port"
+version = "0.1.0"
+authors = ["Niv Kaminer <nivkner@zoho.com>"]
+
+[lib]
+crate-type = ["staticlib"]
+
+[build-dependencies]
+bindgen = "0.42"
+cc = "1"
