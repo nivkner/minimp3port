@@ -38,9 +38,15 @@ pub extern "C" fn mp3dec_decode_frame(
 fn hdr_is_mono(hdr: &[u8]) -> bool {
     hdr[3] & 0xC0 == 0xC0
 }
+
 #[inline]
 fn hdr_is_crc(hdr: &[u8]) -> bool {
     hdr[1] & 1 == 0
+}
+
+#[inline]
+fn hdr_is_free_format(hdr: &[u8]) -> bool {
+    hdr[2] & 0xF0 == 0
 }
 
 #[inline]
@@ -53,6 +59,14 @@ fn hdr_test_mpeg1(hdr: &[u8]) -> bool {
     hdr[1] & 0x8 != 0
 }
 
+fn hdr_compare(this: &[u8], other: &[u8]) -> bool {
+    let valid = unsafe { ffi::hdr_valid(other.as_ptr()) != 0 };
+    valid
+        && (this[1] ^ other[1]) & 0xFE == 0
+        && (this[2] ^ other[2]) & 0x0C == 0
+        && hdr_is_free_format(this) as u8 ^ hdr_is_free_format(other) as u8 == 0
+}
+
 fn decode_frame(
     decoder: &mut ffi::mp3dec_t,
     mp3: &[u8],
@@ -60,18 +74,14 @@ fn decode_frame(
     info: &mut ffi::mp3dec_frame_info_t,
 ) -> Option<NonZeroUsize> {
     let mut frame_size = 0;
-    if mp3.len() > 4
-        && decoder.header[0] == 0xff
-        && unsafe { ffi::hdr_compare((&decoder.header).as_ptr(), mp3.as_ptr()) != 0 }
-    {
+    if mp3.len() > 4 && decoder.header[0] == 0xff && hdr_compare(&decoder.header, mp3) {
         frame_size = unsafe {
             ffi::hdr_frame_bytes(mp3.as_ptr(), decoder.free_format_bytes)
                 + ffi::hdr_padding(mp3.as_ptr())
         };
         if frame_size != mp3.len() as _
             && (frame_size as usize + ffi::HDR_SIZE as usize > mp3.len()
-                || unsafe { ffi::hdr_compare(mp3.as_ptr(), mp3[(frame_size as _)..].as_ptr()) }
-                    == 0)
+                || !hdr_compare(mp3, &mp3[(frame_size as _)..]))
         {
             frame_size = 0;
         }

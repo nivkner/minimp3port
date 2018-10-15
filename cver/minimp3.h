@@ -247,7 +247,7 @@ uint32_t get_bits(bs_t *bs, int n)
     return cache | (next >> -shl);
 }
 
-static int hdr_valid(const uint8_t *h)
+int hdr_valid(const uint8_t *h)
 {
     return h[0] == 0xff &&
         ((h[1] & 0xF0) == 0xf0 || (h[1] & 0xFE) == 0xe2) &&
