@@ -19,7 +19,17 @@ pub extern "C" fn mp3dec_decode_frame(
     info: &mut ffi::mp3dec_frame_info_t,
 ) -> ::std::os::raw::c_int {
     let mp3 = unsafe { slice::from_raw_parts(mp3, mp3_bytes as _) };
-    decode_frame(dec, mp3, pcm, info)
+    let pcm_slice = unsafe {
+        if pcm.is_null() {
+            None
+        } else {
+            Some(slice::from_raw_parts_mut(
+                pcm,
+                ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as _,
+            ))
+        }
+    };
+    decode_frame(dec, mp3, pcm_slice, info)
         .map(NonZeroUsize::get)
         .unwrap_or(0) as _
 }
@@ -46,7 +56,7 @@ fn hdr_test_mpeg1(hdr: &[u8]) -> bool {
 fn decode_frame(
     decoder: &mut ffi::mp3dec_t,
     mp3: &[u8],
-    mut pcm: *mut i16,
+    pcm: Option<&mut [i16]>,
     info: &mut ffi::mp3dec_frame_info_t,
 ) -> Option<NonZeroUsize> {
     let mut frame_size = 0;
@@ -92,9 +102,12 @@ fn decode_frame(
     info.layer = (4 - hdr_get_layer(hdr)) as _;
     info.bitrate_kbps = unsafe { ffi::hdr_bitrate_kbps(hdr.as_ptr()) as _ };
 
-    if pcm.is_null() {
+    if pcm.is_none() {
         return unsafe { NonZeroUsize::new(ffi::hdr_frame_samples(hdr.as_ptr()) as _) };
     }
+
+    let pcm_view = pcm.unwrap();
+    let mut pcm_pos = 0;
 
     let mut bs_frame = ffi::bs_t {
         buf: hdr[(ffi::HDR_SIZE as _)..].as_ptr(),
@@ -136,11 +149,11 @@ fn decode_frame(
                         scratch.grbuf[0].as_mut_ptr(),
                         18,
                         info.channels,
-                        pcm,
+                        pcm_view[pcm_pos..].as_mut_ptr(),
                         scratch.syn[0].as_mut_ptr(),
                     );
                 };
-                pcm = pcm.wrapping_add(576 * info.channels as usize);
+                pcm_pos += 576 * info.channels as usize;
             }
         }
         unsafe { ffi::L3_save_reservoir(decoder, &mut scratch) };
@@ -174,12 +187,12 @@ fn decode_frame(
                         scratch.grbuf[0].as_mut_ptr(),
                         12,
                         info.channels,
-                        pcm,
+                        pcm_view[pcm_pos..].as_mut_ptr(),
                         scratch.syn[0].as_mut_ptr(),
                     );
                     ptr::write_bytes(&mut scratch.grbuf, 0, 1);
                 }
-                pcm = pcm.wrapping_add(384 * info.channels as usize);
+                pcm_pos += 384 * info.channels as usize;
             }
             if bs_frame.pos > bs_frame.limit {
                 mp3dec_init(decoder);
