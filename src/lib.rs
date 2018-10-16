@@ -55,13 +55,30 @@ fn hdr_get_layer(hdr: &[u8]) -> u8 {
 }
 
 #[inline]
+fn hdr_get_bitrate(hdr: &[u8]) -> u8 {
+    hdr[2] >> 4
+}
+
+#[inline]
+fn hdr_get_sample_rate(hdr: &[u8]) -> u8 {
+    hdr[2] >> 2 & 3
+}
+
+#[inline]
 fn hdr_test_mpeg1(hdr: &[u8]) -> bool {
     hdr[1] & 0x8 != 0
 }
 
+fn hdr_valid(hdr: &[u8]) -> bool {
+    hdr[0] == 0xFF
+        && ((hdr[1] & 0xF0) == 0xF0 || (hdr[1] & 0xFE) == 0xE2)
+        && hdr_get_layer(hdr) != 0
+        && hdr_get_bitrate(hdr) != 15
+        && hdr_get_sample_rate(hdr) != 3
+}
+
 fn hdr_compare(this: &[u8], other: &[u8]) -> bool {
-    let valid = unsafe { ffi::hdr_valid(other.as_ptr()) != 0 };
-    valid
+    hdr_valid(other)
         && (this[1] ^ other[1]) & 0xFE == 0
         && (this[2] ^ other[2]) & 0x0C == 0
         && hdr_is_free_format(this) as u8 ^ hdr_is_free_format(other) as u8 == 0
