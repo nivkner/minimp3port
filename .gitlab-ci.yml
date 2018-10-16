@@ -1,0 +1,13 @@
+image: alpine:latest
+
+before_script:
+  - apk update
+  - apk add gcc git clang-dev cargo bash
+
+test1:
+  stage: test
+  script:
+    - cargo build
+    - cd cver
+    - gcc -o minimp3 minimp3_test.c -L../target/debug -lminimp3port -lpthread -ldl -lm
+    - bash scripts/test.sh
