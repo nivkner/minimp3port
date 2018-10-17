@@ -47,6 +47,11 @@ fn hdr_is_free_format(hdr: &[u8]) -> bool {
 }
 
 #[inline]
+fn hdr_is_layer_1(hdr: &[u8]) -> bool {
+    hdr[1] & 6 == 6
+}
+
+#[inline]
 fn hdr_get_layer(hdr: &[u8]) -> u8 {
     hdr[1] >> 1 & 3
 }
@@ -81,6 +86,15 @@ fn hdr_compare(this: &[u8], other: &[u8]) -> bool {
         && hdr_is_free_format(this) as u8 ^ hdr_is_free_format(other) as u8 == 0
 }
 
+fn hdr_frame_bytes(hdr: &[u8], free_format_size: usize) -> usize {
+    let mut frame_bytes = unsafe { ffi::hdr_frame_samples(hdr.as_ptr()) * ffi::hdr_bitrate_kbps(hdr.as_ptr()) * 125 / ffi::hdr_sample_rate_hz(hdr.as_ptr()) };
+    if hdr_is_layer_1(hdr)
+    {
+        frame_bytes &= !3; // slot align
+    }
+    if frame_bytes != 0 { frame_bytes as _ } else { free_format_size as _ }
+}
+
 fn decode_frame(
     decoder: &mut ffi::mp3dec_t,
     mp3: &[u8],
@@ -90,7 +104,7 @@ fn decode_frame(
     let mut frame_size = 0;
     if mp3.len() > 4 && decoder.header[0] == 0xff && hdr_compare(&decoder.header, mp3) {
         frame_size = unsafe {
-            ffi::hdr_frame_bytes(mp3.as_ptr(), decoder.free_format_bytes)
+            hdr_frame_bytes(mp3, decoder.free_format_bytes as _) as ::std::os::raw::c_int
                 + ffi::hdr_padding(mp3.as_ptr())
         };
         if frame_size != mp3.len() as _
