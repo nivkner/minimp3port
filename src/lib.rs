@@ -1,3 +1,5 @@
+#[allow(unused)]
+#[allow(bad_style)]
 mod ffi;
 
 use std::mem;

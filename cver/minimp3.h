@@ -300,7 +300,7 @@ int hdr_padding(const uint8_t *h)
 }
 
 #ifndef MINIMP3_ONLY_MP3
-static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L12_scale_info *sci)
+const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L12_scale_info *sci)
 {
     const L12_subband_alloc_t *alloc;
     int mode = HDR_GET_STEREO_MODE(hdr);
@@ -345,7 +345,7 @@ static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L1
     return alloc;
 }
 
-static void L12_read_scalefactors(bs_t *bs, uint8_t *pba, uint8_t *scfcod, int bands, float *scf)
+void L12_read_scalefactors(bs_t *bs, uint8_t *pba, uint8_t *scfcod, int bands, float *scf)
 {
     static const float g_deq_L12[18*3] = {
 #define DQ(x) 9.53674316e-07f/x, 7.56931807e-07f/x, 6.00777173e-07f/x
@@ -592,7 +592,7 @@ int L3_read_side_info(bs_t *bs, L3_gr_info_t *gr, const uint8_t *hdr)
     return main_data_begin;
 }
 
-static void L3_read_scalefactors(uint8_t *scf, uint8_t *ist_pos, const uint8_t *scf_size, const uint8_t *scf_count, bs_t *bitbuf, int scfsi)
+void L3_read_scalefactors(uint8_t *scf, uint8_t *ist_pos, const uint8_t *scf_size, const uint8_t *scf_count, bs_t *bitbuf, int scfsi)
 {
     int i, k;
     for (i = 0; i < 4 && scf_count[i]; i++, scfsi *= 2)
@@ -625,7 +625,7 @@ static void L3_read_scalefactors(uint8_t *scf, uint8_t *ist_pos, const uint8_t *
     scf[0] = scf[1] = scf[2] = 0;
 }
 
-static float L3_ldexp_q2(float y, int exp_q2)
+float L3_ldexp_q2(float y, int exp_q2)
 {
     static const float g_expfrac[4] = { 9.31322575e-10f,7.83145814e-10f,6.58544508e-10f,5.53767716e-10f };
     int e;
@@ -637,7 +637,7 @@ static float L3_ldexp_q2(float y, int exp_q2)
     return y;
 }
 
-static void L3_decode_scalefactors(const uint8_t *hdr, uint8_t *ist_pos, bs_t *bs, const L3_gr_info_t *gr, float *scf, int ch)
+void L3_decode_scalefactors(const uint8_t *hdr, uint8_t *ist_pos, bs_t *bs, const L3_gr_info_t *gr, float *scf, int ch)
 {
     static const uint8_t g_scf_partitions[3][28] = {
         { 6,5,5, 5,6,5,5,5,6,5, 7,3,11,10,0,0, 7, 7, 7,0, 6, 6,6,3, 8, 8,5,0 },
@@ -704,7 +704,7 @@ static const float g_pow43[129 + 16] = {
     0,1,2.519842f,4.326749f,6.349604f,8.549880f,10.902724f,13.390518f,16.000000f,18.720754f,21.544347f,24.463781f,27.473142f,30.567351f,33.741992f,36.993181f,40.317474f,43.711787f,47.173345f,50.699631f,54.288352f,57.937408f,61.644865f,65.408941f,69.227979f,73.100443f,77.024898f,81.000000f,85.024491f,89.097188f,93.216975f,97.382800f,101.593667f,105.848633f,110.146801f,114.487321f,118.869381f,123.292209f,127.755065f,132.257246f,136.798076f,141.376907f,145.993119f,150.646117f,155.335327f,160.060199f,164.820202f,169.614826f,174.443577f,179.305980f,184.201575f,189.129918f,194.090580f,199.083145f,204.107210f,209.162385f,214.248292f,219.364564f,224.510845f,229.686789f,234.892058f,240.126328f,245.389280f,250.680604f,256.000000f,261.347174f,266.721841f,272.123723f,277.552547f,283.008049f,288.489971f,293.998060f,299.532071f,305.091761f,310.676898f,316.287249f,321.922592f,327.582707f,333.267377f,338.976394f,344.709550f,350.466646f,356.247482f,362.051866f,367.879608f,373.730522f,379.604427f,385.501143f,391.420496f,397.362314f,403.326427f,409.312672f,415.320884f,421.350905f,427.402579f,433.475750f,439.570269f,445.685987f,451.822757f,457.980436f,464.158883f,470.357960f,476.577530f,482.817459f,489.077615f,495.357868f,501.658090f,507.978156f,514.317941f,520.677324f,527.056184f,533.454404f,539.871867f,546.308458f,552.764065f,559.238575f,565.731879f,572.243870f,578.774440f,585.323483f,591.890898f,598.476581f,605.080431f,611.702349f,618.342238f,625.000000f,631.675540f,638.368763f,645.079578f
 };
 
-static float L3_pow_43(int x)
+float L3_pow_43(int x)
 {
     float frac;
     int sign, mult = 256;
@@ -725,7 +725,7 @@ static float L3_pow_43(int x)
     return g_pow43[16 + ((x + sign) >> 6)]*(1.f + frac*((4.f/3) + frac*(2.f/9)))*mult;
 }
 
-static void L3_huffman(float *dst, bs_t *bs, const L3_gr_info_t *gr_info, const float *scf, int layer3gr_limit)
+void L3_huffman(float *dst, bs_t *bs, const L3_gr_info_t *gr_info, const float *scf, int layer3gr_limit)
 {
     static const int16_t tabs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         785,785,785,785,784,784,784,784,513,513,513,513,513,513,513,513,256,256,256,256,256,256,256,256,256,256,256,256,256,256,256,256,
@@ -831,7 +831,7 @@ static void L3_huffman(float *dst, bs_t *bs, const L3_gr_info_t *gr_info, const 
     bs->pos = layer3gr_limit;
 }
 
-static void L3_midside_stereo(float *left, int n)
+void L3_midside_stereo(float *left, int n)
 {
     int i = 0;
     float *right = left + 576;
@@ -853,7 +853,7 @@ static void L3_midside_stereo(float *left, int n)
     }
 }
 
-static void L3_intensity_stereo_band(float *left, int n, float kl, float kr)
+void L3_intensity_stereo_band(float *left, int n, float kl, float kr)
 {
     int i;
     for (i = 0; i < n; i++)
@@ -863,7 +863,7 @@ static void L3_intensity_stereo_band(float *left, int n, float kl, float kr)
     }
 }
 
-static void L3_stereo_top_band(const float *right, const uint8_t *sfb, int nbands, int max_band[3])
+void L3_stereo_top_band(const float *right, const uint8_t *sfb, int nbands, int max_band[3])
 {
     int i, k;
 
@@ -883,7 +883,7 @@ static void L3_stereo_top_band(const float *right, const uint8_t *sfb, int nband
     }
 }
 
-static void L3_stereo_process(float *left, const uint8_t *ist_pos, const uint8_t *sfb, const uint8_t *hdr, int max_band[3], int mpeg2_sh)
+void L3_stereo_process(float *left, const uint8_t *ist_pos, const uint8_t *sfb, const uint8_t *hdr, int max_band[3], int mpeg2_sh)
 {
     static const float g_pan[7*2] = { 0,1,0.21132487f,0.78867513f,0.36602540f,0.63397460f,0.5f,0.5f,0.63397460f,0.36602540f,0.78867513f,0.21132487f,1,0 };
     unsigned i, max_pos = HDR_TEST_MPEG1(hdr) ? 7 : 64;
@@ -917,7 +917,7 @@ static void L3_stereo_process(float *left, const uint8_t *ist_pos, const uint8_t
     }
 }
 
-static void L3_intensity_stereo(float *left, uint8_t *ist_pos, const L3_gr_info_t *gr, const uint8_t *hdr)
+void L3_intensity_stereo(float *left, uint8_t *ist_pos, const L3_gr_info_t *gr, const uint8_t *hdr)
 {
     int max_band[3], n_sfb = gr->n_long_sfb + gr->n_short_sfb;
     int i, max_blocks = gr->n_short_sfb ? 3 : 1;
@@ -937,7 +937,7 @@ static void L3_intensity_stereo(float *left, uint8_t *ist_pos, const L3_gr_info_
     L3_stereo_process(left, ist_pos, gr->sfbtab, hdr, max_band, gr[1].scalefac_compress & 1);
 }
 
-static void L3_reorder(float *grbuf, float *scratch, const uint8_t *sfb)
+void L3_reorder(float *grbuf, float *scratch, const uint8_t *sfb)
 {
     int i, len;
     float *src = grbuf, *dst = scratch;
@@ -954,7 +954,7 @@ static void L3_reorder(float *grbuf, float *scratch, const uint8_t *sfb)
     memcpy(grbuf, scratch, (dst - scratch)*sizeof(float));
 }
 
-static void L3_antialias(float *grbuf, int nbands)
+void L3_antialias(float *grbuf, int nbands)
 {
     static const float g_aa[2][8] = {
         {0.85749293f,0.88174200f,0.94962865f,0.98331459f,0.99551782f,0.99916056f,0.99989920f,0.99999316f},
@@ -989,7 +989,7 @@ static void L3_antialias(float *grbuf, int nbands)
     }
 }
 
-static void L3_dct3_9(float *y)
+void L3_dct3_9(float *y)
 {
     float s0, s1, s2, s3, s4, s5, s6, s7, s8, t0, t2, t4;
 
@@ -1029,7 +1029,7 @@ static void L3_dct3_9(float *y)
     y[8] = s4 + s7;
 }
 
-static void L3_imdct36(float *grbuf, float *overlap, const float *window, int nbands)
+void L3_imdct36(float *grbuf, float *overlap, const float *window, int nbands)
 {
     int i, j;
     static const float g_twid9[18] = {
@@ -1086,7 +1086,7 @@ static void L3_imdct36(float *grbuf, float *overlap, const float *window, int nb
     }
 }
 
-static void L3_idct3(float x0, float x1, float x2, float *dst)
+void L3_idct3(float x0, float x1, float x2, float *dst)
 {
     float m1 = x1*0.86602540f;
     float a1 = x0 - x2*0.5f;
@@ -1095,7 +1095,7 @@ static void L3_idct3(float x0, float x1, float x2, float *dst)
     dst[2] = a1 - m1;
 }
 
-static void L3_imdct12(float *x, float *dst, float *overlap)
+void L3_imdct12(float *x, float *dst, float *overlap)
 {
     static const float g_twid3[6] = { 0.79335334f,0.92387953f,0.99144486f, 0.60876143f,0.38268343f,0.13052619f };
     float co[3], si[3];
@@ -1115,7 +1115,7 @@ static void L3_imdct12(float *x, float *dst, float *overlap)
     }
 }
 
-static void L3_imdct_short(float *grbuf, float *overlap, int nbands)
+void L3_imdct_short(float *grbuf, float *overlap, int nbands)
 {
     for (;nbands > 0; nbands--, overlap += 9, grbuf += 18)
     {
@@ -1128,7 +1128,7 @@ static void L3_imdct_short(float *grbuf, float *overlap, int nbands)
     }
 }
 
-static void L3_change_sign(float *grbuf)
+void L3_change_sign(float *grbuf)
 {
     int b, i;
     for (b = 0, grbuf += 18; b < 32; b += 2, grbuf += 36)
@@ -1136,7 +1136,7 @@ static void L3_change_sign(float *grbuf)
             grbuf[i] = -grbuf[i];
 }
 
-static void L3_imdct_gr(float *grbuf, float *overlap, unsigned block_type, unsigned n_long_bands)
+void L3_imdct_gr(float *grbuf, float *overlap, unsigned block_type, unsigned n_long_bands)
 {
     static const float g_mdct_window[2][18] = {
         { 0.99904822f,0.99144486f,0.97629601f,0.95371695f,0.92387953f,0.88701083f,0.84339145f,0.79335334f,0.73727734f,0.04361938f,0.13052619f,0.21643961f,0.30070580f,0.38268343f,0.46174861f,0.53729961f,0.60876143f,0.67559021f },
@@ -1216,7 +1216,7 @@ void L3_decode(mp3dec_t *h, mp3dec_scratch_t *s, L3_gr_info_t *gr_info, int nch)
     }
 }
 
-static void mp3d_DCT_II(float *grbuf, int n)
+void mp3d_DCT_II(float *grbuf, int n)
 {
     static const float g_sec[24] = {
         10.19000816f,0.50060302f,0.50241929f,3.40760851f,0.50547093f,0.52249861f,2.05778098f,0.51544732f,0.56694406f,1.48416460f,0.53104258f,0.64682180f,1.16943991f,0.55310392f,0.78815460f,0.97256821f,0.58293498f,1.06067765f,0.83934963f,0.62250412f,1.72244716f,0.74453628f,0.67480832f,5.10114861f
@@ -1372,7 +1372,7 @@ static void mp3d_DCT_II(float *grbuf, int n)
 }
 
 #ifndef MINIMP3_FLOAT_OUTPUT
-static int16_t mp3d_scale_pcm(float sample)
+int16_t mp3d_scale_pcm(float sample)
 {
     if (sample >=  32766.5) return (int16_t) 32767;
     if (sample <= -32767.5) return (int16_t)-32768;
@@ -1381,13 +1381,13 @@ static int16_t mp3d_scale_pcm(float sample)
     return s;
 }
 #else /* MINIMP3_FLOAT_OUTPUT */
-static float mp3d_scale_pcm(float sample)
+float mp3d_scale_pcm(float sample)
 {
     return sample*(1.f/32768.f);
 }
 #endif /* MINIMP3_FLOAT_OUTPUT */
 
-static void mp3d_synth_pair(mp3d_sample_t *pcm, int nch, const float *z)
+void mp3d_synth_pair(mp3d_sample_t *pcm, int nch, const float *z)
 {
     float a;
     a  = (z[14*64] - z[    0]) * 29;
@@ -1412,7 +1412,7 @@ static void mp3d_synth_pair(mp3d_sample_t *pcm, int nch, const float *z)
     pcm[16*nch] = mp3d_scale_pcm(a);
 }
 
-static void mp3d_synth(float *xl, mp3d_sample_t *dstl, int nch, float *lins)
+void mp3d_synth(float *xl, mp3d_sample_t *dstl, int nch, float *lins)
 {
     int i;
     float *xr = xl + 576*(nch - 1);
@@ -1593,7 +1593,7 @@ void mp3d_synth_granule(float *qmf_state, float *grbuf, int nbands, int nch, mp3
     }
 }
 
-static int mp3d_match_frame(const uint8_t *hdr, int mp3_bytes, int frame_bytes)
+int mp3d_match_frame(const uint8_t *hdr, int mp3_bytes, int frame_bytes)
 {
     int i, nmatch;
     for (i = 0, nmatch = 0; nmatch < MAX_FRAME_SYNC_MATCHES; nmatch++)

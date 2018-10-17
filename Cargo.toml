@@ -7,5 +7,4 @@ authors = ["Niv Kaminer <nivkner@zoho.com>"]
 crate-type = ["staticlib"]
 
 [build-dependencies]
-bindgen = "0.42"
 cc = "1"
