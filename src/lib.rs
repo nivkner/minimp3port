@@ -86,6 +86,11 @@ fn hdr_test_padding(hdr: &[u8]) -> bool {
     hdr[2] & 0x2 != 0
 }
 
+#[inline]
+fn hdr_test_not_mpeg25(hdr: &[u8]) -> bool {
+    hdr[1] & 0x10 != 0
+}
+
 fn hdr_valid(hdr: &[u8]) -> bool {
     hdr[0] == 0xFF
         && ((hdr[1] & 0xF0) == 0xF0 || (hdr[1] & 0xFE) == 0xE2)
@@ -102,10 +107,8 @@ fn hdr_compare(this: &[u8], other: &[u8]) -> bool {
 }
 
 fn hdr_frame_bytes(hdr: &[u8], free_format_size: i32) -> i32 {
-    let mut frame_bytes = unsafe {
-        hdr_frame_samples(hdr) * hdr_bitrate_kbps(hdr) * 125
-            / ffi::hdr_sample_rate_hz(hdr.as_ptr()) as i32
-    };
+    let mut frame_bytes =
+        hdr_frame_samples(hdr) * hdr_bitrate_kbps(hdr) * 125 / hdr_sample_rate_hz(hdr);
     if hdr_is_layer_1(hdr) {
         frame_bytes &= !3; // slot align
     }
@@ -148,8 +151,15 @@ fn hdr_bitrate_kbps(hdr: &[u8]) -> i32 {
         0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,
     ];
     2 * HALFRATE[(hdr_get_bitrate(hdr)
-        + (hdr_get_layer(hdr) - 1) * 15
-        + hdr_test_mpeg1(hdr) as u8 * 3 * 15) as usize] as i32
+                     + (hdr_get_layer(hdr) - 1) * 15
+                     + hdr_test_mpeg1(hdr) as u8 * 3 * 15) as usize] as i32
+}
+
+fn hdr_sample_rate_hz(hdr: &[u8]) -> i32 {
+    let g_hz: [i32; 3] = [44100, 48000, 32000];
+    g_hz[hdr_get_sample_rate(hdr) as usize]
+        >> !hdr_test_mpeg1(hdr) as u8
+        >> !hdr_test_not_mpeg25(hdr) as u8
 }
 
 fn decode_frame(
@@ -190,7 +200,7 @@ fn decode_frame(
     decoder.header.copy_from_slice(&hdr[..(HDR_SIZE as _)]);
     info.frame_bytes = i + frame_size;
     info.channels = if hdr_is_mono(hdr) { 1 } else { 2 };
-    info.hz = unsafe { ffi::hdr_sample_rate_hz(hdr.as_ptr()) } as _;
+    info.hz = hdr_sample_rate_hz(hdr);
     info.layer = (4 - hdr_get_layer(hdr)) as _;
     info.bitrate_kbps = hdr_bitrate_kbps(hdr);
 
