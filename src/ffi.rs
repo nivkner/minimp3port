@@ -176,6 +176,7 @@ pub const MAX_SCFI: u32 = 44;
 pub const HAVE_SIMD: u32 = 0;
 pub type wchar_t = ::std::os::raw::c_uint;
 #[repr(C)]
+#[repr(align(16))]
 #[derive(Debug, Copy, Clone)]
 pub struct max_align_t {
     pub __clang_max_align_nonce1: ::std::os::raw::c_longlong,
