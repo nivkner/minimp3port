@@ -1,7 +1,6 @@
 mod ffi;
 
 use std::mem;
-use std::num::NonZeroUsize;
 use std::ptr;
 use std::slice;
 
@@ -29,9 +28,7 @@ pub extern "C" fn mp3dec_decode_frame(
             ))
         }
     };
-    decode_frame(dec, mp3, pcm_slice, info)
-        .map(NonZeroUsize::get)
-        .unwrap_or(0) as _
+    decode_frame(dec, mp3, pcm_slice, info) as _
 }
 
 #[inline]
@@ -89,7 +86,7 @@ fn decode_frame(
     mp3: &[u8],
     pcm: Option<&mut [i16]>,
     info: &mut ffi::mp3dec_frame_info_t,
-) -> Option<NonZeroUsize> {
+) -> usize {
     let mut frame_size = 0;
     if mp3.len() > 4 && decoder.header[0] == 0xff && hdr_compare(&decoder.header, mp3) {
         frame_size = unsafe {
@@ -117,7 +114,7 @@ fn decode_frame(
         };
         if frame_size == 0 || i + frame_size > mp3.len() as _ {
             info.frame_bytes = i;
-            return None;
+            return 0;
         }
     }
 
@@ -130,7 +127,7 @@ fn decode_frame(
     info.bitrate_kbps = unsafe { ffi::hdr_bitrate_kbps(hdr.as_ptr()) as _ };
 
     if pcm.is_none() {
-        return unsafe { NonZeroUsize::new(ffi::hdr_frame_samples(hdr.as_ptr()) as _) };
+        return unsafe { ffi::hdr_frame_samples(hdr.as_ptr()) as _ };
     }
 
     let pcm_view = pcm.unwrap();
@@ -155,7 +152,7 @@ fn decode_frame(
         };
         if main_data_begin < 0 || bs_frame.pos > bs_frame.limit {
             mp3dec_init(decoder);
-            return None;
+            return 0;
         }
         success = unsafe {
             ffi::L3_restore_reservoir(decoder, &mut bs_frame, &mut scratch, main_data_begin)
@@ -223,13 +220,9 @@ fn decode_frame(
             }
             if bs_frame.pos > bs_frame.limit {
                 mp3dec_init(decoder);
-                return None;
+                return 0;
             }
         }
     }
-    unsafe {
-        NonZeroUsize::new(
-            success as usize * ffi::hdr_frame_samples(decoder.header.as_mut_ptr()) as usize,
-        )
-    }
+    unsafe { success as usize * ffi::hdr_frame_samples(decoder.header.as_mut_ptr()) as usize }
 }
