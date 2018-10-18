@@ -33,6 +33,8 @@ pub extern "C" fn mp3dec_decode_frame(
     decode_frame(dec, mp3, pcm_slice, info)
 }
 
+const HDR_SIZE: i32 = 4;
+
 #[inline]
 fn hdr_is_mono(hdr: &[u8]) -> bool {
     hdr[3] & 0xC0 == 0xC0
@@ -130,7 +132,7 @@ fn decode_frame(
     if mp3.len() > 4 && decoder.header[0] == 0xff && hdr_compare(&decoder.header, mp3) {
         frame_size = hdr_frame_bytes(mp3, decoder.free_format_bytes) + hdr_padding(mp3);
         if frame_size != mp3.len() as _
-            && (frame_size + ffi::HDR_SIZE as i32 > mp3.len() as i32
+            && (frame_size + HDR_SIZE > mp3.len() as i32
                 || !hdr_compare(mp3, &mp3[(frame_size as _)..]))
         {
             frame_size = 0;
@@ -155,7 +157,7 @@ fn decode_frame(
     }
 
     let hdr = &mp3[(i as _)..];
-    decoder.header.copy_from_slice(&hdr[..(ffi::HDR_SIZE as _)]);
+    decoder.header.copy_from_slice(&hdr[..(HDR_SIZE as _)]);
     info.frame_bytes = i + frame_size;
     info.channels = if hdr_is_mono(hdr) { 1 } else { 2 };
     info.hz = unsafe { ffi::hdr_sample_rate_hz(hdr.as_ptr()) } as _;
@@ -170,9 +172,9 @@ fn decode_frame(
     let mut pcm_pos = 0;
 
     let mut bs_frame = ffi::bs_t {
-        buf: hdr[(ffi::HDR_SIZE as _)..].as_ptr(),
+        buf: hdr[(HDR_SIZE as _)..].as_ptr(),
         pos: 0,
-        limit: (frame_size - ffi::HDR_SIZE as i32) * 8,
+        limit: (frame_size - HDR_SIZE) * 8,
     };
     if hdr_is_crc(hdr) {
         unsafe {
