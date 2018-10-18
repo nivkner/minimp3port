@@ -103,7 +103,7 @@ fn hdr_compare(this: &[u8], other: &[u8]) -> bool {
 
 fn hdr_frame_bytes(hdr: &[u8], free_format_size: i32) -> i32 {
     let mut frame_bytes = unsafe {
-        hdr_frame_samples(hdr) * ffi::hdr_bitrate_kbps(hdr.as_ptr()) as i32 * 125
+        hdr_frame_samples(hdr) * hdr_bitrate_kbps(hdr) * 125
             / ffi::hdr_sample_rate_hz(hdr.as_ptr()) as i32
     };
     if hdr_is_layer_1(hdr) {
@@ -134,6 +134,22 @@ fn hdr_frame_samples(hdr: &[u8]) -> i32 {
     } else {
         1152 >> hdr_is_frame_576(hdr) as u8
     }
+}
+
+fn hdr_bitrate_kbps(hdr: &[u8]) -> i32 {
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    static HALFRATE: [u8 ; 2 * 3 * 15] = [
+        0,4,8,12,16,20,24,28,32,40,48,56,64,72,80,
+        0,4,8,12,16,20,24,28,32,40,48,56,64,72,80,
+        0,16,24,28,32,40,48,56,64,72,80,88,96,112,128,
+
+        0,16,20,24,28,32,40,48,56,64,80,96,112,128,160,
+        0,16,24,28,32,40,48,56,64,80,96,112,128,160,192,
+        0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,
+    ];
+    2 * HALFRATE[(hdr_get_bitrate(hdr)
+        + (hdr_get_layer(hdr) - 1) * 15
+        + hdr_test_mpeg1(hdr) as u8 * 3 * 15) as usize] as i32
 }
 
 fn decode_frame(
@@ -176,7 +192,7 @@ fn decode_frame(
     info.channels = if hdr_is_mono(hdr) { 1 } else { 2 };
     info.hz = unsafe { ffi::hdr_sample_rate_hz(hdr.as_ptr()) } as _;
     info.layer = (4 - hdr_get_layer(hdr)) as _;
-    info.bitrate_kbps = unsafe { ffi::hdr_bitrate_kbps(hdr.as_ptr()) as _ };
+    info.bitrate_kbps = hdr_bitrate_kbps(hdr);
 
     if pcm.is_none() {
         return hdr_frame_samples(hdr);
