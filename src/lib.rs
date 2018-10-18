@@ -73,6 +73,11 @@ fn hdr_test_mpeg1(hdr: &[u8]) -> bool {
     hdr[1] & 0x8 != 0
 }
 
+#[inline]
+fn hdr_test_padding(hdr: &[u8]) -> bool {
+    hdr[2] & 0x2 != 0
+}
+
 fn hdr_valid(hdr: &[u8]) -> bool {
     hdr[0] == 0xFF
         && ((hdr[1] & 0xF0) == 0xF0 || (hdr[1] & 0xFE) == 0xE2)
@@ -103,6 +108,18 @@ fn hdr_frame_bytes(hdr: &[u8], free_format_size: i32) -> i32 {
     }
 }
 
+fn hdr_padding(hdr: &[u8]) -> i32 {
+    if hdr_test_padding(hdr) {
+        if hdr_is_layer_1(hdr) {
+            4
+        } else {
+            1
+        }
+    } else {
+        0
+    }
+}
+
 fn decode_frame(
     decoder: &mut ffi::mp3dec_t,
     mp3: &[u8],
@@ -111,9 +128,7 @@ fn decode_frame(
 ) -> i32 {
     let mut frame_size = 0;
     if mp3.len() > 4 && decoder.header[0] == 0xff && hdr_compare(&decoder.header, mp3) {
-        frame_size = unsafe {
-            hdr_frame_bytes(mp3, decoder.free_format_bytes) + ffi::hdr_padding(mp3.as_ptr())
-        };
+        frame_size = hdr_frame_bytes(mp3, decoder.free_format_bytes) + hdr_padding(mp3);
         if frame_size != mp3.len() as _
             && (frame_size + ffi::HDR_SIZE as i32 > mp3.len() as i32
                 || !hdr_compare(mp3, &mp3[(frame_size as _)..]))
