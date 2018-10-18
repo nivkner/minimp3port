@@ -8,6 +8,7 @@ test1:
   stage: test
   script:
     - cargo build
+    - cargo test
     - cd cver
     - gcc -o minimp3 minimp3_test.c -L../target/debug -lminimp3port -lpthread -ldl -lm
     - bash scripts/test.sh
