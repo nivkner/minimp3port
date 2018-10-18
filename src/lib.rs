@@ -57,6 +57,11 @@ fn hdr_is_layer_1(hdr: &[u8]) -> bool {
 }
 
 #[inline]
+fn hdr_is_frame_576(hdr: &[u8]) -> bool {
+    hdr[1] & 14 == 2
+}
+
+#[inline]
 fn hdr_get_layer(hdr: &[u8]) -> u8 {
     hdr[1] >> 1 & 3
 }
@@ -98,14 +103,14 @@ fn hdr_compare(this: &[u8], other: &[u8]) -> bool {
 
 fn hdr_frame_bytes(hdr: &[u8], free_format_size: i32) -> i32 {
     let mut frame_bytes = unsafe {
-        ffi::hdr_frame_samples(hdr.as_ptr()) * ffi::hdr_bitrate_kbps(hdr.as_ptr()) * 125
-            / ffi::hdr_sample_rate_hz(hdr.as_ptr())
+        hdr_frame_samples(hdr) * ffi::hdr_bitrate_kbps(hdr.as_ptr()) as i32 * 125
+            / ffi::hdr_sample_rate_hz(hdr.as_ptr()) as i32
     };
     if hdr_is_layer_1(hdr) {
         frame_bytes &= !3; // slot align
     }
     if frame_bytes != 0 {
-        frame_bytes as _
+        frame_bytes
     } else {
         free_format_size
     }
@@ -120,6 +125,14 @@ fn hdr_padding(hdr: &[u8]) -> i32 {
         }
     } else {
         0
+    }
+}
+
+fn hdr_frame_samples(hdr: &[u8]) -> i32 {
+    if hdr_is_layer_1(hdr) {
+        384
+    } else {
+        1152 >> hdr_is_frame_576(hdr) as u8
     }
 }
 
@@ -166,7 +179,7 @@ fn decode_frame(
     info.bitrate_kbps = unsafe { ffi::hdr_bitrate_kbps(hdr.as_ptr()) as _ };
 
     if pcm.is_none() {
-        return unsafe { ffi::hdr_frame_samples(hdr.as_ptr()) as _ };
+        return hdr_frame_samples(hdr);
     }
 
     let pcm_view = pcm.unwrap();
@@ -263,5 +276,5 @@ fn decode_frame(
             }
         }
     }
-    unsafe { success * ffi::hdr_frame_samples(decoder.header.as_mut_ptr()) as i32 }
+    success * hdr_frame_samples(&decoder.header)
 }
