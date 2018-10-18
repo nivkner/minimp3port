@@ -26,7 +26,7 @@ pub extern "C" fn mp3dec_decode_frame(
         } else {
             Some(slice::from_raw_parts_mut(
                 pcm,
-                ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as _,
+                MINIMP3_MAX_SAMPLES_PER_FRAME as _,
             ))
         }
     };
@@ -34,6 +34,7 @@ pub extern "C" fn mp3dec_decode_frame(
 }
 
 const HDR_SIZE: i32 = 4;
+const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 
 #[inline]
 fn hdr_is_mono(hdr: &[u8]) -> bool {
