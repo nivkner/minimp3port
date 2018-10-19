@@ -194,9 +194,10 @@ fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mu
             k += 1;
         }
 
-        if (frame_bytes != 0 && pos as i32 + frame_and_padding <= mp3.len() as i32 && unsafe {
-            ffi::mp3d_match_frame(mp3_view.as_ptr(), mp3_view.len() as _, frame_bytes) != 0
-        }) || (pos == 0 && frame_and_padding == mp3.len() as i32)
+        if (frame_bytes != 0
+            && pos as i32 + frame_and_padding <= mp3.len() as i32
+            && mp3d_match_frame(mp3_view, frame_bytes))
+            || (pos == 0 && frame_and_padding == mp3.len() as i32)
         {
             *ptr_frame_bytes = frame_and_padding;
             return pos as i32;
@@ -205,6 +206,19 @@ fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mu
     }
     *ptr_frame_bytes = 0;
     data_size as i32
+}
+
+fn mp3d_match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
+    let mut i = 0;
+    for nmatch in 0..ffi::MAX_FRAME_SYNC_MATCHES {
+        i += (hdr_frame_bytes(&hdr[i..], frame_bytes) + hdr_padding(&hdr[i..])) as usize;
+        if i + HDR_SIZE as usize > hdr.len() {
+            return nmatch > 0;
+        } else if !hdr_compare(hdr, &hdr[i..]) {
+            return false;
+        }
+    }
+    true
 }
 
 fn decode_frame(
