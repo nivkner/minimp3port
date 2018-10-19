@@ -184,8 +184,8 @@ fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mu
             if hdr_compare(mp3_view, &mp3_view[(k as _)..]) {
                 let fb = k - hdr_padding(mp3_view);
                 let nextfb = fb + hdr_padding(&mp3_view[(k as _)..]);
-                if !(pos as i32 + k + nextfb + HDR_SIZE > mp3.len() as i32
-                    || !hdr_compare(mp3_view, &mp3_view[((k + nextfb) as _)..]))
+                if pos as i32 + k + nextfb + HDR_SIZE < mp3.len() as i32
+                    && hdr_compare(mp3_view, &mp3_view[((k + nextfb) as _)..])
                 {
                     frame_and_padding = k;
                     frame_bytes = fb;
