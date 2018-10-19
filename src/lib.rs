@@ -162,6 +162,50 @@ fn hdr_sample_rate_hz(hdr: &[u8]) -> i32 {
         >> !hdr_test_not_mpeg25(hdr) as u8
 }
 
+fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
+    let data_size = mp3.len() as i32 - HDR_SIZE;
+    let valid_frames = mp3
+        .windows(HDR_SIZE as _)
+        .enumerate()
+        .filter(|(_, hdr)| hdr_valid(hdr))
+        .map(|(pos, _)| pos);
+    for pos in valid_frames {
+        let mp3_view = &mp3[pos..];
+        let mut frame_bytes = hdr_frame_bytes(mp3_view, *free_format_bytes);
+        let mut frame_and_padding = frame_bytes + hdr_padding(mp3_view);
+
+        let mut k = HDR_SIZE;
+        while frame_bytes == 0
+            && k < ffi::MAX_FREE_FORMAT_FRAME_SIZE as i32
+            && pos as i32 + 2 * k < mp3.len() as i32 - HDR_SIZE
+        {
+            if hdr_compare(mp3_view, &mp3_view[(k as _)..]) {
+                let fb = k - hdr_padding(mp3_view);
+                let nextfb = fb + hdr_padding(&mp3_view[(k as _)..]);
+                if !(pos as i32 + k + nextfb + HDR_SIZE > mp3.len() as i32
+                    || !hdr_compare(mp3_view, &mp3_view[((k + nextfb) as _)..]))
+                {
+                    frame_and_padding = k;
+                    frame_bytes = fb;
+                    *free_format_bytes = fb;
+                }
+            }
+            k += 1;
+        }
+
+        if (frame_bytes != 0 && pos as i32 + frame_and_padding <= mp3.len() as i32 && unsafe {
+            ffi::mp3d_match_frame(mp3_view.as_ptr(), mp3_view.len() as _, frame_bytes) != 0
+        }) || (pos == 0 && frame_and_padding == mp3.len() as i32)
+        {
+            *ptr_frame_bytes = frame_and_padding;
+            return pos as i32;
+        }
+        *free_format_bytes = 0;
+    }
+    *ptr_frame_bytes = 0;
+    data_size as i32
+}
+
 fn decode_frame(
     decoder: &mut ffi::mp3dec_t,
     mp3: &[u8],
@@ -181,15 +225,8 @@ fn decode_frame(
 
     let mut i = 0;
     if frame_size == 0 {
-        i = unsafe {
-            ptr::write_bytes(decoder, 0, 1);
-            ffi::mp3d_find_frame(
-                mp3.as_ptr(),
-                mp3.len() as _,
-                &mut decoder.free_format_bytes,
-                &mut frame_size,
-            )
-        };
+        unsafe { ptr::write_bytes(decoder, 0, 1) }
+        i = mp3d_find_frame(mp3, &mut decoder.free_format_bytes, &mut frame_size);
         if frame_size == 0 || i + frame_size > mp3.len() as _ {
             info.frame_bytes = i;
             return 0;
