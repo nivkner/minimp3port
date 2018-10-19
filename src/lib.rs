@@ -36,6 +36,7 @@ pub extern "C" fn mp3dec_decode_frame(
 const HDR_SIZE: i32 = 4;
 const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
+const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 
 #[inline]
 fn hdr_is_mono(hdr: &[u8]) -> bool {
@@ -210,7 +211,7 @@ fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mu
 
 fn mp3d_match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
     let mut i = 0;
-    for nmatch in 0..ffi::MAX_FRAME_SYNC_MATCHES {
+    for nmatch in 0..MAX_FRAME_SYNC_MATCHES {
         i += (hdr_frame_bytes(&hdr[i..], frame_bytes) + hdr_padding(&hdr[i..])) as usize;
         if i + HDR_SIZE as usize > hdr.len() {
             return nmatch > 0;
