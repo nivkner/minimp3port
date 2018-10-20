@@ -403,4 +403,16 @@ mod tests {
             hdr_frame_bytes(&native_hdr, free_format_bytes) == unsafe { ffi::hdr_frame_bytes(ffi_hdr.as_ptr(), free_format_bytes) }
         }
     }
+
+    quickcheck! {
+        fn test_hdr_padding(data: Vec<u8>) -> bool {
+            if data.len() == 0 {
+                return true // empty data is not interesting
+            }
+            let mut native_hdr = Vec::new();
+            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
+            let ffi_hdr = native_hdr.clone();
+            hdr_padding(&native_hdr) == unsafe { ffi::hdr_padding(ffi_hdr.as_ptr()) }
+        }
+    }
 }
