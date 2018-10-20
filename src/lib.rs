@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[macro_use]
+extern crate quickcheck;
+
 #[allow(unused)]
 #[allow(bad_style)]
 mod ffi;
@@ -354,4 +358,34 @@ fn decode_frame(
         }
     }
     success * hdr_frame_samples(&decoder.header)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    quickcheck! {
+        fn test_hdr_valid(data: Vec<u8>) -> bool {
+            if data.len() == 0 {
+                return true // empty data is not interesting
+            }
+            let mut native_hdr = Vec::new();
+            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
+            let ffi_hdr = native_hdr.clone();
+            hdr_valid(&native_hdr) == unsafe { (ffi::hdr_valid(ffi_hdr.as_ptr()) != 0) }
+        }
+    }
+
+    quickcheck! {
+        fn test_hdr_compare(data: Vec<u8>) -> bool {
+            if data.len() == 0 {
+                return true // empty data is not interesting
+            }
+            let mut native_hdrs = Vec::new();
+            native_hdrs.extend(data.into_iter().cycle().take(2 * HDR_SIZE as usize));
+            let ffi_hdrs = native_hdrs.clone();
+            let (native_hdr1, native_hdr2) = native_hdrs.split_at(HDR_SIZE as _);
+            let (ffi_hdr1, ffi_hdr2) = ffi_hdrs.split_at(HDR_SIZE as _);
+            hdr_compare(native_hdr1, native_hdr2) == unsafe { (ffi::hdr_compare(ffi_hdr1.as_ptr(), ffi_hdr2.as_ptr()) != 0) }
+        }
+    }
 }
