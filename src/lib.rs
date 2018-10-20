@@ -270,9 +270,7 @@ fn decode_frame(
         limit: (frame_size - HDR_SIZE) * 8,
     };
     if hdr_is_crc(hdr) {
-        unsafe {
-            ffi::get_bits(&mut bs_frame, 16);
-        }
+        bs_frame.pos += 16;
     }
 
     let mut scratch: ffi::mp3dec_scratch_t = unsafe { mem::uninitialized() };
