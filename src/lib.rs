@@ -444,4 +444,20 @@ mod tests {
             hdr_bitrate_kbps(&native_hdr) as i64 == unsafe { ffi::hdr_bitrate_kbps(ffi_hdr.as_ptr()) as i64 }
         }
     }
+
+    quickcheck! {
+        fn test_hdr_sample_rate_hz(data: Vec<u8>) -> bool {
+            if data.len() == 0 {
+                return true // empty data is not interesting
+            }
+            let mut native_hdr = Vec::new();
+            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
+            if !hdr_valid(&native_hdr) {
+                return true; // function should only be used on valid headers
+            }
+            let ffi_hdr = native_hdr.clone();
+            // ensure values stay the same for both funtions (i64 covers i32 and u32)
+            hdr_sample_rate_hz(&native_hdr) as i64 == unsafe { ffi::hdr_sample_rate_hz(ffi_hdr.as_ptr()) as i64 }
+        }
+    }
 }
