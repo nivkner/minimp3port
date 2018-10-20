@@ -388,4 +388,19 @@ mod tests {
             hdr_compare(native_hdr1, native_hdr2) == unsafe { (ffi::hdr_compare(ffi_hdr1.as_ptr(), ffi_hdr2.as_ptr()) != 0) }
         }
     }
+
+    quickcheck! {
+        fn test_hdr_frame_bytes(data: Vec<u8>, free_format_bytes: i32) -> bool {
+            if data.len() == 0 {
+                return true // empty data is not interesting
+            }
+            let mut native_hdr = Vec::new();
+            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
+            if !hdr_valid(&native_hdr) {
+                return true; // function should only be used on valid headers
+            }
+            let ffi_hdr = native_hdr.clone();
+            hdr_frame_bytes(&native_hdr, free_format_bytes) == unsafe { ffi::hdr_frame_bytes(ffi_hdr.as_ptr(), free_format_bytes) }
+        }
+    }
 }
