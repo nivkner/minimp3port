@@ -169,7 +169,6 @@ fn hdr_sample_rate_hz(hdr: &[u8]) -> i32 {
 }
 
 fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
-    let data_size = mp3.len() as i32 - HDR_SIZE;
     let valid_frames = mp3
         .windows(HDR_SIZE as _)
         .enumerate()
@@ -210,7 +209,8 @@ fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mu
         *free_format_bytes = 0;
     }
     *ptr_frame_bytes = 0;
-    data_size as i32
+    // match c version behavior, returns 0 when len < 4
+    mp3.len().saturating_sub(HDR_SIZE as _) as i32
 }
 
 fn mp3d_match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
@@ -458,6 +458,28 @@ mod tests {
             let ffi_hdr = native_hdr.clone();
             // ensure values stay the same for both funtions (i64 covers i32 and u32)
             hdr_sample_rate_hz(&native_hdr) as i64 == unsafe { ffi::hdr_sample_rate_hz(ffi_hdr.as_ptr()) as i64 }
+        }
+    }
+
+    quickcheck! {
+        fn test_mp3d_find_frame(data: Vec<u8>, free_format_bytes: i32, ptr_frame_bytes: i32) -> bool {
+            let native_mp3 = data.clone();
+            let mut native_ffb = free_format_bytes;
+            let mut native_pfb = ptr_frame_bytes;
+            let ffi_mp3 = data.clone();
+            let mut ffi_ffb = free_format_bytes;
+            let mut ffi_pfb = ptr_frame_bytes;
+
+            let native_res = mp3d_find_frame(&native_mp3, &mut native_ffb, &mut native_pfb);
+            let ffi_res = unsafe {
+                ffi::mp3d_find_frame(
+                    ffi_mp3.as_ptr(),
+                    ffi_mp3.len() as _,
+                    &mut ffi_ffb,
+                    &mut ffi_pfb
+                    )
+                };
+            native_res == ffi_res && native_ffb == ffi_ffb && native_pfb == ffi_pfb
         }
     }
 }
