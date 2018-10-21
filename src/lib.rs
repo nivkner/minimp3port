@@ -482,4 +482,14 @@ mod tests {
             native_res == ffi_res && native_ffb == ffi_ffb && native_pfb == ffi_pfb
         }
     }
+
+    quickcheck! {
+        fn test_mp3d_match_frame(native_mp3: Vec<u8>, frame_bytes: i32) -> bool {
+            if native_mp3.len() < HDR_SIZE as usize || !hdr_valid(&native_mp3) {
+                return true // data must have a valid header
+            }
+            let ffi_mp3 = native_mp3.clone();
+            mp3d_match_frame(&native_mp3, frame_bytes) == unsafe { ffi::mp3d_match_frame(ffi_mp3.as_ptr(), ffi_mp3.len() as _, frame_bytes) != 0 }
+        }
+    }
 }
