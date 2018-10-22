@@ -42,6 +42,7 @@ const HDR_SIZE: i32 = 4;
 const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
+const SHORT_BLOCK_TYPE: u8 = 2;
 
 fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
     let valid_frames = mp3
@@ -99,6 +100,145 @@ fn mp3d_match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
         }
     }
     true
+}
+
+fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -> i32 {
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    static G_SCF_LONG: [[u8;23]; 8] = [
+        [ 6,6,6,6,6,6,8,10,12,14,16,20,24,28,32,38,46,52,60,68,58,54,0 ],
+        [ 12,12,12,12,12,12,16,20,24,28,32,40,48,56,64,76,90,2,2,2,2,2,0 ],
+        [ 6,6,6,6,6,6,8,10,12,14,16,20,24,28,32,38,46,52,60,68,58,54,0 ],
+        [ 6,6,6,6,6,6,8,10,12,14,16,18,22,26,32,38,46,54,62,70,76,36,0 ],
+        [ 6,6,6,6,6,6,8,10,12,14,16,20,24,28,32,38,46,52,60,68,58,54,0 ],
+        [ 4,4,4,4,4,4,6,6,8,8,10,12,16,20,24,28,34,42,50,54,76,158,0 ],
+        [ 4,4,4,4,4,4,6,6,6,8,10,12,16,18,22,28,34,40,46,54,54,192,0 ],
+        [ 4,4,4,4,4,4,6,6,8,10,12,16,20,24,30,38,46,56,68,84,102,26,0 ],
+    ];
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    static G_SCF_SHORT: [[u8; 40]; 8] = [
+        [ 4,4,4,4,4,4,4,4,4,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,24,24,24,30,30,30,40,40,40,18,18,18,0 ],
+        [ 8,8,8,8,8,8,8,8,8,12,12,12,16,16,16,20,20,20,24,24,24,28,28,28,36,36,36,2,2,2,2,2,2,2,2,2,26,26,26,0 ],
+        [ 4,4,4,4,4,4,4,4,4,6,6,6,6,6,6,8,8,8,10,10,10,14,14,14,18,18,18,26,26,26,32,32,32,42,42,42,18,18,18,0 ],
+        [ 4,4,4,4,4,4,4,4,4,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,24,24,24,32,32,32,44,44,44,12,12,12,0 ],
+        [ 4,4,4,4,4,4,4,4,4,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,24,24,24,30,30,30,40,40,40,18,18,18,0 ],
+        [ 4,4,4,4,4,4,4,4,4,4,4,4,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,22,22,22,30,30,30,56,56,56,0 ],
+        [ 4,4,4,4,4,4,4,4,4,4,4,4,6,6,6,6,6,6,10,10,10,12,12,12,14,14,14,16,16,16,20,20,20,26,26,26,66,66,66,0 ],
+        [ 4,4,4,4,4,4,4,4,4,4,4,4,6,6,6,8,8,8,12,12,12,16,16,16,20,20,20,26,26,26,34,34,34,42,42,42,12,12,12,0 ],
+    ];
+    // since arrays must be fixed length, use a value that would be obviously wrong,
+    // instead of leaving the area uninitialized or using option which incompatible with gr
+    const INVALID: u8 = u8::max_value();
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    static G_SCF_MIXED: [[u8; 40]; 8] = [
+        [ 6,6,6,6,6,6,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,24,24,24,30,30,30,40,40,40,18,18,18,0   ,INVALID,INVALID,INVALID],
+        [ 12,12,12,4,4,4,8,8,8,12,12,12,16,16,16,20,20,20,24,24,24,28,28,28,36,36,36,2,2,2,2,2,2,2,2,2,26,26,26,0 ],
+        [ 6,6,6,6,6,6,6,6,6,6,6,6,8,8,8,10,10,10,14,14,14,18,18,18,26,26,26,32,32,32,42,42,42,18,18,18,0      ,INVALID,INVALID,INVALID],
+        [ 6,6,6,6,6,6,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,24,24,24,32,32,32,44,44,44,12,12,12,0   ,INVALID,INVALID,INVALID],
+        [ 6,6,6,6,6,6,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,24,24,24,30,30,30,40,40,40,18,18,18,0   ,INVALID,INVALID,INVALID],
+        [ 4,4,4,4,4,4,6,6,4,4,4,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,22,22,22,30,30,30,56,56,56,0  ,INVALID],
+        [ 4,4,4,4,4,4,6,6,4,4,4,6,6,6,6,6,6,10,10,10,12,12,12,14,14,14,16,16,16,20,20,20,26,26,26,66,66,66,0  ,INVALID],
+        [ 4,4,4,4,4,4,6,6,4,4,4,6,6,6,8,8,8,12,12,12,16,16,16,20,20,20,26,26,26,34,34,34,42,42,42,12,12,12,0  ,INVALID],
+    ];
+
+    let mut sr_idx = header::get_my_sample_rate(hdr);
+    if sr_idx != 0 {
+        sr_idx -= 1
+    }
+    let mut gr_count = if header::is_mono(hdr) { 1 } else { 2 };
+    let mut scfsi = 0;
+
+    let main_data_begin = if header::test_mpeg1(hdr) {
+        gr_count *= 2;
+        let data = unsafe { ffi::get_bits(bs, 9) };
+        scfsi = unsafe { ffi::get_bits(bs, 7 + gr_count) };
+        data
+    } else {
+        unsafe { ffi::get_bits(bs, 8 + gr_count) >> gr_count }
+    };
+
+    let mut part_23_sum = 0;
+    let mut tables: i32;
+    let mut scfsi = scfsi as i32;
+
+    for i in 0..gr_count {
+        let gr = &mut gr[i as usize];
+        if header::is_mono(hdr) {
+            scfsi <<= 4;
+        }
+        gr.part_23_length = unsafe { ffi::get_bits(bs, 12) as _ };
+        part_23_sum += gr.part_23_length as i32;
+        gr.big_values = unsafe { ffi::get_bits(bs, 9) as _ };
+        if gr.big_values > 288 {
+            return -1;
+        }
+
+        gr.global_gain = unsafe { ffi::get_bits(bs, 8) as _ };
+        gr.scalefac_compress =
+            unsafe { ffi::get_bits(bs, if header::test_mpeg1(hdr) { 4 } else { 9 }) as _ };
+        gr.sfbtab = G_SCF_LONG[sr_idx as usize].as_ptr();
+        gr.n_long_sfb = 22;
+        gr.n_short_sfb = 0;
+
+        if unsafe { ffi::get_bits(bs, 1) != 0 } {
+            gr.block_type = unsafe { ffi::get_bits(bs, 2) as _ };
+            if gr.block_type == 0 {
+                return -1;
+            }
+
+            gr.mixed_block_flag = unsafe { ffi::get_bits(bs, 1) as _ };
+            gr.region_count[0] = 7;
+            gr.region_count[1] = 255;
+            if gr.block_type == SHORT_BLOCK_TYPE {
+                scfsi &= 0x0F0F;
+
+                if gr.mixed_block_flag == 0 {
+                    gr.region_count[0] = 8;
+                    gr.sfbtab = G_SCF_SHORT[sr_idx as usize].as_ptr();
+                    gr.n_long_sfb = 0;
+                    gr.n_short_sfb = 39;
+                } else {
+                    gr.sfbtab = G_SCF_MIXED[sr_idx as usize].as_ptr();
+                    gr.n_long_sfb = if header::test_mpeg1(hdr) { 8 } else { 6 };
+                    gr.n_short_sfb = 30;
+                }
+            }
+
+            tables = unsafe { ffi::get_bits(bs, 10) as _ };
+            tables <<= 5;
+
+            for i in 0..3 {
+                gr.subblock_gain[i] = unsafe { ffi::get_bits(bs, 3) as _ }
+            }
+        } else {
+            gr.block_type = 0;
+            gr.mixed_block_flag = 0;
+            tables = unsafe { ffi::get_bits(bs, 15) as _ };
+
+            gr.region_count[0] = unsafe { ffi::get_bits(bs, 4) as _ };
+            gr.region_count[1] = unsafe { ffi::get_bits(bs, 3) as _ };
+            gr.region_count[2] = 255;
+        }
+
+        gr.table_select[0] = (tables >> 10) as _;
+        gr.table_select[1] = ((tables >> 5) & 31) as _;
+        gr.table_select[2] = (tables & 31) as _;
+        gr.preflag = if header::test_mpeg1(hdr) {
+            unsafe { ffi::get_bits(bs, 1) as _ }
+        } else {
+            (gr.scalefac_compress >= 500) as _
+        };
+
+        gr.scalefac_scale = unsafe { ffi::get_bits(bs, 1) as _ };
+        gr.count1_table = unsafe { ffi::get_bits(bs, 1) as _ };
+        gr.scfsi = ((scfsi >> 12) & 15) as _;
+        scfsi <<= 4;
+    }
+
+    if part_23_sum + bs.pos > bs.limit + (main_data_begin as i32) * 8 {
+        -1
+    } else {
+        main_data_begin as _
+    }
 }
 
 fn decode_frame(
@@ -324,12 +464,70 @@ mod tests {
         }
     }
 
+    impl PartialEq for ffi::bs_t {
+        fn eq(&self, other: &Self) -> bool {
+            let self_slice = unsafe { slice::from_raw_parts(self.buf, (self.limit / 8) as _) };
+            let other_slice = unsafe { slice::from_raw_parts(other.buf, (other.limit / 8) as _) };
+            self_slice == other_slice && self.pos == other.pos && self.limit == self.limit
+        }
+    }
+
+    // used instead of PartialEq to know what part was not equal
+    fn compare_l3_gr_info(this: &ffi::L3_gr_info_t, other: &ffi::L3_gr_info_t) {
+        // can be between 23 and 40, figure out how that is figured out
+        let this_sfbtab = unsafe { slice::from_raw_parts(this.sfbtab, 23) };
+        let other_sfbtab = unsafe { slice::from_raw_parts(other.sfbtab, 23) };
+        assert_eq!(this_sfbtab, other_sfbtab, "sfbtab");
+        assert_eq!(this.part_23_length, other.part_23_length, "part_23_length");
+        assert_eq!(this.big_values, other.big_values, "big_values");
+        assert_eq!(
+            this.scalefac_compress, other.scalefac_compress,
+            "scalefac_compress"
+        );
+        assert_eq!(this.global_gain, other.global_gain, "global_gain");
+        assert_eq!(this.block_type, other.block_type, "block_type");
+        assert_eq!(
+            this.mixed_block_flag, other.mixed_block_flag,
+            "mixed_block_flag"
+        );
+        assert_eq!(this.n_long_sfb, other.n_long_sfb, "n_long_sfb");
+        assert_eq!(this.n_short_sfb, other.n_short_sfb, "n_short_sfb");
+        assert_eq!(this.table_select.as_ref(), other.table_select.as_ref());
+        assert_eq!(this.region_count.as_ref(), other.region_count.as_ref());
+        assert_eq!(this.subblock_gain.as_ref(), other.subblock_gain.as_ref());
+        assert_eq!(this.preflag, other.preflag, "preflag");
+        assert_eq!(this.scalefac_scale, other.scalefac_scale, "scalefac_scale");
+        assert_eq!(this.count1_table, other.count1_table, "count1_table");
+        assert_eq!(this.scfsi, other.scfsi, "scfsi");
+    }
+
     quickcheck! {
         fn test_mp3d_match_frame(hdr: header::ValidHeader, data: Vec<u8>, frame_bytes: u32) -> bool {
             let mp3: Vec<u8> = hdr.0.iter().chain(data.iter()).map(|n| *n).collect();
             mp3d_match_frame(&mp3, frame_bytes as _) == unsafe {
                 ffi::mp3d_match_frame(mp3.as_ptr(), mp3.len() as _, frame_bytes as _) != 0
             }
+        }
+    }
+
+    quickcheck! {
+        fn test_l3_read_side_info(data: Vec<u8>, hdr: header::ValidHeader) -> bool {
+            let mut native_bs = ffi::bs_t {
+                buf: data.as_ptr(),
+                pos: 0,
+                limit: (data.len() * 8) as _,
+            };
+            let mut ffi_bs = native_bs;
+            let mut native_gr_info: [ffi::L3_gr_info_t; 4] = unsafe { mem::zeroed() };
+            let mut ffi_gr_info = native_gr_info;
+            let native_res = l3_read_side_info(&mut native_bs, &mut native_gr_info, &hdr.0);
+            let ffi_res = unsafe {
+                ffi::L3_read_side_info(&mut ffi_bs, ffi_gr_info.as_mut_ptr(), hdr.0.as_ptr())
+            };
+            assert!(native_res == ffi_res);
+            assert!(native_bs == ffi_bs);
+            native_gr_info.iter().enumerate().for_each(|(i, native)| compare_l3_gr_info(native, &ffi_gr_info[i]));
+            true
         }
     }
 

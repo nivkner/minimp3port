@@ -41,6 +41,11 @@ pub fn get_sample_rate(hdr: &[u8]) -> u8 {
 }
 
 #[inline]
+pub fn get_my_sample_rate(hdr: &[u8]) -> u8 {
+    get_sample_rate(hdr) + (((hdr[1] >> 3) & 1) + ((hdr[1] >> 4) & 1)) * 3
+}
+
+#[inline]
 pub fn test_mpeg1(hdr: &[u8]) -> bool {
     hdr[1] & 0x8 != 0
 }
@@ -151,7 +156,10 @@ mod tests {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let mut header = ValidHeader([0xFF, 0, 0, 0]);
             let options: Vec<u8> = (0u8..=255u8)
-                .filter(|num| num >> 1u8 & 3u8 != 0u8 && ((num & 0xF0u8) == 0xF0u8 || (num & 0xFEu8) == 0xE2u8))
+                .filter(|num| {
+                    num >> 1u8 & 3u8 != 0u8
+                        && ((num & 0xF0u8) == 0xF0u8 || (num & 0xFEu8) == 0xE2u8)
+                })
                 .collect();
             let idx = u8::arbitrary(g) % options.len() as u8;
             header.0[1] = options[idx as usize];
