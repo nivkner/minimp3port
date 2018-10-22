@@ -244,7 +244,7 @@ pub type uint_fast32_t = u64;
 pub type uintmax_t = u64;
 pub type intmax_t = i64;
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct mp3dec_frame_info_t {
     pub frame_bytes: ::std::os::raw::c_int,
     pub channels: ::std::os::raw::c_int,
