@@ -5,6 +5,7 @@ extern crate quickcheck;
 #[allow(unused)]
 #[allow(bad_style)]
 mod ffi;
+mod header;
 
 use std::mem;
 use std::ptr;
@@ -42,153 +43,27 @@ const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 
-#[inline]
-fn hdr_is_mono(hdr: &[u8]) -> bool {
-    hdr[3] & 0xC0 == 0xC0
-}
-
-#[inline]
-fn hdr_is_crc(hdr: &[u8]) -> bool {
-    hdr[1] & 1 == 0
-}
-
-#[inline]
-fn hdr_is_free_format(hdr: &[u8]) -> bool {
-    hdr[2] & 0xF0 == 0
-}
-
-#[inline]
-fn hdr_is_layer_1(hdr: &[u8]) -> bool {
-    hdr[1] & 6 == 6
-}
-
-#[inline]
-fn hdr_is_frame_576(hdr: &[u8]) -> bool {
-    hdr[1] & 14 == 2
-}
-
-#[inline]
-fn hdr_get_layer(hdr: &[u8]) -> u8 {
-    hdr[1] >> 1 & 3
-}
-
-#[inline]
-fn hdr_get_bitrate(hdr: &[u8]) -> u8 {
-    hdr[2] >> 4
-}
-
-#[inline]
-fn hdr_get_sample_rate(hdr: &[u8]) -> u8 {
-    hdr[2] >> 2 & 3
-}
-
-#[inline]
-fn hdr_test_mpeg1(hdr: &[u8]) -> bool {
-    hdr[1] & 0x8 != 0
-}
-
-#[inline]
-fn hdr_test_padding(hdr: &[u8]) -> bool {
-    hdr[2] & 0x2 != 0
-}
-
-#[inline]
-fn hdr_test_not_mpeg25(hdr: &[u8]) -> bool {
-    hdr[1] & 0x10 != 0
-}
-
-fn hdr_valid(hdr: &[u8]) -> bool {
-    hdr[0] == 0xFF
-        && ((hdr[1] & 0xF0) == 0xF0 || (hdr[1] & 0xFE) == 0xE2)
-        && hdr_get_layer(hdr) != 0
-        && hdr_get_bitrate(hdr) != 15
-        && hdr_get_sample_rate(hdr) != 3
-}
-
-fn hdr_compare(this: &[u8], other: &[u8]) -> bool {
-    hdr_valid(other)
-        && (this[1] ^ other[1]) & 0xFE == 0
-        && (this[2] ^ other[2]) & 0x0C == 0
-        && hdr_is_free_format(this) as u8 ^ hdr_is_free_format(other) as u8 == 0
-}
-
-fn hdr_frame_bytes(hdr: &[u8], free_format_size: i32) -> i32 {
-    let mut frame_bytes =
-        hdr_frame_samples(hdr) * hdr_bitrate_kbps(hdr) * 125 / hdr_sample_rate_hz(hdr);
-    if hdr_is_layer_1(hdr) {
-        frame_bytes &= !3; // slot align
-    }
-    if frame_bytes != 0 {
-        frame_bytes
-    } else {
-        free_format_size
-    }
-}
-
-fn hdr_padding(hdr: &[u8]) -> i32 {
-    if hdr_test_padding(hdr) {
-        if hdr_is_layer_1(hdr) {
-            4
-        } else {
-            1
-        }
-    } else {
-        0
-    }
-}
-
-fn hdr_frame_samples(hdr: &[u8]) -> i32 {
-    if hdr_is_layer_1(hdr) {
-        384
-    } else {
-        1152 >> hdr_is_frame_576(hdr) as u8
-    }
-}
-
-fn hdr_bitrate_kbps(hdr: &[u8]) -> i32 {
-    #[cfg_attr(rustfmt, rustfmt_skip)]
-    static HALFRATE: [u8 ; 2 * 3 * 15] = [
-        0,4,8,12,16,20,24,28,32,40,48,56,64,72,80,
-        0,4,8,12,16,20,24,28,32,40,48,56,64,72,80,
-        0,16,24,28,32,40,48,56,64,72,80,88,96,112,128,
-
-        0,16,20,24,28,32,40,48,56,64,80,96,112,128,160,
-        0,16,24,28,32,40,48,56,64,80,96,112,128,160,192,
-        0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,
-    ];
-    2 * HALFRATE[(hdr_get_bitrate(hdr)
-                     + (hdr_get_layer(hdr) - 1) * 15
-                     + hdr_test_mpeg1(hdr) as u8 * 3 * 15) as usize] as i32
-}
-
-fn hdr_sample_rate_hz(hdr: &[u8]) -> i32 {
-    let g_hz: [i32; 3] = [44100, 48000, 32000];
-    g_hz[hdr_get_sample_rate(hdr) as usize]
-        >> !hdr_test_mpeg1(hdr) as u8
-        >> !hdr_test_not_mpeg25(hdr) as u8
-}
-
 fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
     let valid_frames = mp3
         .windows(HDR_SIZE as _)
         .enumerate()
-        .filter(|(_, hdr)| hdr_valid(hdr))
+        .filter(|(_, hdr)| header::is_valid(hdr))
         .map(|(pos, _)| pos);
     for pos in valid_frames {
         let mp3_view = &mp3[pos..];
-        let mut frame_bytes = hdr_frame_bytes(mp3_view, *free_format_bytes);
-        let mut frame_and_padding = frame_bytes + hdr_padding(mp3_view);
+        let mut frame_bytes = header::frame_bytes(mp3_view, *free_format_bytes);
+        let mut frame_and_padding = frame_bytes + header::padding(mp3_view);
 
         let mut k = HDR_SIZE;
         while frame_bytes == 0
             && k < MAX_FREE_FORMAT_FRAME_SIZE
             && pos as i32 + 2 * k < mp3.len() as i32 - HDR_SIZE
         {
-            if hdr_compare(mp3_view, &mp3_view[(k as _)..]) {
-                let fb = k - hdr_padding(mp3_view);
-                let nextfb = fb + hdr_padding(&mp3_view[(k as _)..]);
+            if header::compare(mp3_view, &mp3_view[(k as _)..]) {
+                let fb = k - header::padding(mp3_view);
+                let nextfb = fb + header::padding(&mp3_view[(k as _)..]);
                 if pos as i32 + k + nextfb + HDR_SIZE < mp3.len() as i32
-                    && hdr_compare(mp3_view, &mp3_view[((k + nextfb) as _)..])
+                    && header::compare(mp3_view, &mp3_view[((k + nextfb) as _)..])
                 {
                     frame_and_padding = k;
                     frame_bytes = fb;
@@ -216,10 +91,10 @@ fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mu
 fn mp3d_match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
     let mut i = 0;
     for nmatch in 0..MAX_FRAME_SYNC_MATCHES {
-        i += (hdr_frame_bytes(&hdr[i..], frame_bytes) + hdr_padding(&hdr[i..])) as usize;
+        i += (header::frame_bytes(&hdr[i..], frame_bytes) + header::padding(&hdr[i..])) as usize;
         if i + HDR_SIZE as usize > hdr.len() {
             return nmatch > 0;
-        } else if !hdr_compare(hdr, &hdr[i..]) {
+        } else if !header::compare(hdr, &hdr[i..]) {
             return false;
         }
     }
@@ -233,11 +108,11 @@ fn decode_frame(
     info: &mut ffi::mp3dec_frame_info_t,
 ) -> i32 {
     let mut frame_size = 0;
-    if mp3.len() > 4 && decoder.header[0] == 0xff && hdr_compare(&decoder.header, mp3) {
-        frame_size = hdr_frame_bytes(mp3, decoder.free_format_bytes) + hdr_padding(mp3);
+    if mp3.len() > 4 && decoder.header[0] == 0xff && header::compare(&decoder.header, mp3) {
+        frame_size = header::frame_bytes(mp3, decoder.free_format_bytes) + header::padding(mp3);
         if frame_size != mp3.len() as _
             && (frame_size + HDR_SIZE > mp3.len() as i32
-                || !hdr_compare(mp3, &mp3[(frame_size as _)..]))
+                || !header::compare(mp3, &mp3[(frame_size as _)..]))
         {
             frame_size = 0;
         }
@@ -256,13 +131,13 @@ fn decode_frame(
     let hdr = &mp3[(i as _)..];
     decoder.header.copy_from_slice(&hdr[..(HDR_SIZE as _)]);
     info.frame_bytes = i + frame_size;
-    info.channels = if hdr_is_mono(hdr) { 1 } else { 2 };
-    info.hz = hdr_sample_rate_hz(hdr);
-    info.layer = (4 - hdr_get_layer(hdr)) as _;
-    info.bitrate_kbps = hdr_bitrate_kbps(hdr);
+    info.channels = if header::is_mono(hdr) { 1 } else { 2 };
+    info.hz = header::sample_rate_hz(hdr);
+    info.layer = (4 - header::get_layer(hdr)) as _;
+    info.bitrate_kbps = header::bitrate_kbps(hdr);
 
     if pcm.is_none() {
-        return hdr_frame_samples(hdr);
+        return header::frame_samples(hdr);
     }
 
     let pcm_view = pcm.unwrap();
@@ -273,7 +148,7 @@ fn decode_frame(
         pos: 0,
         limit: (frame_size - HDR_SIZE) * 8,
     };
-    if hdr_is_crc(hdr) {
+    if header::is_crc(hdr) {
         bs_frame.pos += 16;
     }
 
@@ -291,7 +166,7 @@ fn decode_frame(
             ffi::L3_restore_reservoir(decoder, &mut bs_frame, &mut scratch, main_data_begin)
         };
         if success != 0 {
-            let count = if hdr_test_mpeg1(hdr) { 2 } else { 1 };
+            let count = if header::test_mpeg1(hdr) { 2 } else { 1 };
             for igr in 0..count {
                 unsafe {
                     ptr::write_bytes(&mut scratch.grbuf, 0, 1);
@@ -357,7 +232,7 @@ fn decode_frame(
             }
         }
     }
-    success * hdr_frame_samples(&decoder.header)
+    success * header::frame_samples(&decoder.header)
 }
 
 #[cfg(test)]
@@ -428,70 +303,6 @@ mod tests {
     }
 
     quickcheck! {
-        fn test_hdr_valid(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize {
-                return true
-            }
-            hdr_valid(&hdr) == unsafe { (ffi::hdr_valid(hdr.as_ptr()) != 0) }
-        }
-    }
-
-    quickcheck! {
-        fn test_hdr_compare(hdrs: Vec<u8>) -> bool {
-            if hdrs.len() < (HDR_SIZE * 2) as usize {
-                return true
-            }
-            let (hdr1, hdr2) = hdrs.split_at(HDR_SIZE as _);
-            hdr_compare(hdr1, hdr2) == unsafe { (ffi::hdr_compare(hdr1.as_ptr(), hdr2.as_ptr()) != 0) }
-        }
-    }
-
-    quickcheck! {
-        fn test_hdr_frame_bytes(hdr: Vec<u8>, free_format_bytes: i32) -> bool {
-            if hdr.len() < HDR_SIZE as usize || !hdr_valid(&hdr) {
-                return true
-            }
-            hdr_frame_bytes(&hdr, free_format_bytes) == unsafe { ffi::hdr_frame_bytes(hdr.as_ptr(), free_format_bytes) }
-        }
-    }
-
-    quickcheck! {
-        fn test_hdr_padding(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize {
-                return true
-            }
-            hdr_padding(&hdr) == unsafe { ffi::hdr_padding(hdr.as_ptr()) }
-        }
-    }
-
-    quickcheck! {
-        fn test_hdr_frame_samples(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize {
-                return true
-            }
-            hdr_frame_samples(&hdr) as i64 == unsafe { ffi::hdr_frame_samples(hdr.as_ptr()) as i64 }
-        }
-    }
-
-    quickcheck! {
-        fn test_hdr_bitrate_kbps(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize || !hdr_valid(&hdr) {
-                return true
-            }
-            hdr_bitrate_kbps(&hdr) as i64 == unsafe { ffi::hdr_bitrate_kbps(hdr.as_ptr()) as i64 }
-        }
-    }
-
-    quickcheck! {
-        fn test_hdr_sample_rate_hz(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize || !hdr_valid(&hdr) {
-                return true
-            }
-            hdr_sample_rate_hz(&hdr) as i64 == unsafe { ffi::hdr_sample_rate_hz(hdr.as_ptr()) as i64 }
-        }
-    }
-
-    quickcheck! {
         fn test_mp3d_find_frame(mp3: Vec<u8>, free_format_bytes: i32, ptr_frame_bytes: i32) -> bool {
             let mut native_ffb = free_format_bytes;
             let mut native_pfb = ptr_frame_bytes;
@@ -515,7 +326,7 @@ mod tests {
 
     quickcheck! {
         fn test_mp3d_match_frame(mp3: Vec<u8>, frame_bytes: i32) -> bool {
-            if mp3.len() < HDR_SIZE as usize || !hdr_valid(&mp3) {
+            if mp3.len() < HDR_SIZE as usize || !header::is_valid(&mp3) {
                 return true
             }
             mp3d_match_frame(&mp3, frame_bytes) == unsafe {
