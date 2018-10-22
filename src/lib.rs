@@ -428,150 +428,121 @@ mod tests {
     }
 
     quickcheck! {
-        fn test_hdr_valid(data: Vec<u8>) -> bool {
-            if data.len() == 0 {
-                return true // empty data is not interesting
+        fn test_hdr_valid(hdr: Vec<u8>) -> bool {
+            if hdr.len() < HDR_SIZE as usize {
+                return true
             }
-            let mut native_hdr = Vec::new();
-            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
-            let ffi_hdr = native_hdr.clone();
-            hdr_valid(&native_hdr) == unsafe { (ffi::hdr_valid(ffi_hdr.as_ptr()) != 0) }
+            hdr_valid(&hdr) == unsafe { (ffi::hdr_valid(hdr.as_ptr()) != 0) }
         }
     }
 
     quickcheck! {
-        fn test_hdr_compare(data: Vec<u8>) -> bool {
-            if data.len() == 0 {
-                return true // empty data is not interesting
+        fn test_hdr_compare(hdrs: Vec<u8>) -> bool {
+            if hdrs.len() < (HDR_SIZE * 2) as usize {
+                return true
             }
-            let mut native_hdrs = Vec::new();
-            native_hdrs.extend(data.into_iter().cycle().take(2 * HDR_SIZE as usize));
-            let ffi_hdrs = native_hdrs.clone();
-            let (native_hdr1, native_hdr2) = native_hdrs.split_at(HDR_SIZE as _);
-            let (ffi_hdr1, ffi_hdr2) = ffi_hdrs.split_at(HDR_SIZE as _);
-            hdr_compare(native_hdr1, native_hdr2) == unsafe { (ffi::hdr_compare(ffi_hdr1.as_ptr(), ffi_hdr2.as_ptr()) != 0) }
+            let (hdr1, hdr2) = hdrs.split_at(HDR_SIZE as _);
+            hdr_compare(hdr1, hdr2) == unsafe { (ffi::hdr_compare(hdr1.as_ptr(), hdr2.as_ptr()) != 0) }
         }
     }
 
     quickcheck! {
-        fn test_hdr_frame_bytes(data: Vec<u8>, free_format_bytes: i32) -> bool {
-            if data.len() == 0 {
-                return true // empty data is not interesting
+        fn test_hdr_frame_bytes(hdr: Vec<u8>, free_format_bytes: i32) -> bool {
+            if hdr.len() < HDR_SIZE as usize || !hdr_valid(&hdr) {
+                return true
             }
-            let mut native_hdr = Vec::new();
-            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
-            if !hdr_valid(&native_hdr) {
-                return true; // function should only be used on valid headers
-            }
-            let ffi_hdr = native_hdr.clone();
-            hdr_frame_bytes(&native_hdr, free_format_bytes) == unsafe { ffi::hdr_frame_bytes(ffi_hdr.as_ptr(), free_format_bytes) }
+            hdr_frame_bytes(&hdr, free_format_bytes) == unsafe { ffi::hdr_frame_bytes(hdr.as_ptr(), free_format_bytes) }
         }
     }
 
     quickcheck! {
-        fn test_hdr_padding(data: Vec<u8>) -> bool {
-            if data.len() == 0 {
-                return true // empty data is not interesting
+        fn test_hdr_padding(hdr: Vec<u8>) -> bool {
+            if hdr.len() < HDR_SIZE as usize {
+                return true
             }
-            let mut native_hdr = Vec::new();
-            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
-            let ffi_hdr = native_hdr.clone();
-            hdr_padding(&native_hdr) == unsafe { ffi::hdr_padding(ffi_hdr.as_ptr()) }
+            hdr_padding(&hdr) == unsafe { ffi::hdr_padding(hdr.as_ptr()) }
         }
     }
 
     quickcheck! {
-        fn test_hdr_frame_samples(data: Vec<u8>) -> bool {
-            if data.len() == 0 {
-                return true // empty data is not interesting
+        fn test_hdr_frame_samples(hdr: Vec<u8>) -> bool {
+            if hdr.len() < HDR_SIZE as usize {
+                return true
             }
-            let mut native_hdr = Vec::new();
-            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
-            let ffi_hdr = native_hdr.clone();
-            // ensure values stay the same for both funtions (i64 covers i32 and u32)
-            hdr_frame_samples(&native_hdr) as i64 == unsafe { ffi::hdr_frame_samples(ffi_hdr.as_ptr()) as i64 }
+            hdr_frame_samples(&hdr) as i64 == unsafe { ffi::hdr_frame_samples(hdr.as_ptr()) as i64 }
         }
     }
 
     quickcheck! {
-        fn test_hdr_bitrate_kbps(data: Vec<u8>) -> bool {
-            if data.len() == 0 {
-                return true // empty data is not interesting
+        fn test_hdr_bitrate_kbps(hdr: Vec<u8>) -> bool {
+            if hdr.len() < HDR_SIZE as usize || !hdr_valid(&hdr) {
+                return true
             }
-            let mut native_hdr = Vec::new();
-            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
-            if !hdr_valid(&native_hdr) {
-                return true; // function should only be used on valid headers
-            }
-            let ffi_hdr = native_hdr.clone();
-            // ensure values stay the same for both funtions (i64 covers i32 and u32)
-            hdr_bitrate_kbps(&native_hdr) as i64 == unsafe { ffi::hdr_bitrate_kbps(ffi_hdr.as_ptr()) as i64 }
+            hdr_bitrate_kbps(&hdr) as i64 == unsafe { ffi::hdr_bitrate_kbps(hdr.as_ptr()) as i64 }
         }
     }
 
     quickcheck! {
-        fn test_hdr_sample_rate_hz(data: Vec<u8>) -> bool {
-            if data.len() == 0 {
-                return true // empty data is not interesting
+        fn test_hdr_sample_rate_hz(hdr: Vec<u8>) -> bool {
+            if hdr.len() < HDR_SIZE as usize || !hdr_valid(&hdr) {
+                return true
             }
-            let mut native_hdr = Vec::new();
-            native_hdr.extend(data.into_iter().cycle().take(HDR_SIZE as _));
-            if !hdr_valid(&native_hdr) {
-                return true; // function should only be used on valid headers
-            }
-            let ffi_hdr = native_hdr.clone();
-            // ensure values stay the same for both funtions (i64 covers i32 and u32)
-            hdr_sample_rate_hz(&native_hdr) as i64 == unsafe { ffi::hdr_sample_rate_hz(ffi_hdr.as_ptr()) as i64 }
+            hdr_sample_rate_hz(&hdr) as i64 == unsafe { ffi::hdr_sample_rate_hz(hdr.as_ptr()) as i64 }
         }
     }
 
     quickcheck! {
-        fn test_mp3d_find_frame(data: Vec<u8>, free_format_bytes: i32, ptr_frame_bytes: i32) -> bool {
-            let native_mp3 = data.clone();
+        fn test_mp3d_find_frame(mp3: Vec<u8>, free_format_bytes: i32, ptr_frame_bytes: i32) -> bool {
             let mut native_ffb = free_format_bytes;
             let mut native_pfb = ptr_frame_bytes;
-            let ffi_mp3 = data.clone();
             let mut ffi_ffb = free_format_bytes;
             let mut ffi_pfb = ptr_frame_bytes;
 
-            let native_res = mp3d_find_frame(&native_mp3, &mut native_ffb, &mut native_pfb);
+            let native_res = mp3d_find_frame(&mp3, &mut native_ffb, &mut native_pfb);
             let ffi_res = unsafe {
                 ffi::mp3d_find_frame(
-                    ffi_mp3.as_ptr(),
-                    ffi_mp3.len() as _,
+                    mp3.as_ptr(),
+                    mp3.len() as _,
                     &mut ffi_ffb,
                     &mut ffi_pfb
                     )
                 };
-            native_res == ffi_res && native_ffb == ffi_ffb && native_pfb == ffi_pfb
+            native_res == ffi_res &&
+                native_ffb == ffi_ffb &&
+                native_pfb == ffi_pfb
         }
     }
 
     quickcheck! {
-        fn test_mp3d_match_frame(native_mp3: Vec<u8>, frame_bytes: i32) -> bool {
-            if native_mp3.len() < HDR_SIZE as usize || !hdr_valid(&native_mp3) {
-                return true // data must have a valid header
+        fn test_mp3d_match_frame(mp3: Vec<u8>, frame_bytes: i32) -> bool {
+            if mp3.len() < HDR_SIZE as usize || !hdr_valid(&mp3) {
+                return true
             }
-            let ffi_mp3 = native_mp3.clone();
-            mp3d_match_frame(&native_mp3, frame_bytes) == unsafe { ffi::mp3d_match_frame(ffi_mp3.as_ptr(), ffi_mp3.len() as _, frame_bytes) != 0 }
+            mp3d_match_frame(&mp3, frame_bytes) == unsafe {
+                ffi::mp3d_match_frame(mp3.as_ptr(), mp3.len() as _, frame_bytes) != 0
+            }
         }
     }
 
     quickcheck! {
-        fn test_decode_frame(decoder: ffi::mp3dec_t, native_mp3: Vec<u8>, pcm: Option<()>, info: ffi::mp3dec_frame_info_t) -> bool {
+        fn test_decode_frame(decoder: ffi::mp3dec_t, mp3: Vec<u8>, pcm: Option<()>, info: ffi::mp3dec_frame_info_t) -> bool {
             let mut native_decoder = decoder;
             let mut ffi_decoder = decoder;
-            let ffi_mp3 = native_mp3.clone();
             let mut native_pcm = [0; MINIMP3_MAX_SAMPLES_PER_FRAME as usize];
             let mut ffi_pcm = [0; MINIMP3_MAX_SAMPLES_PER_FRAME as usize];
             let mut native_info = info;
             let mut ffi_info = info;
-            let native_res = decode_frame(&mut native_decoder, &native_mp3, pcm.map(|_| native_pcm.as_mut()), &mut native_info);
+            let native_res = decode_frame(
+                &mut native_decoder,
+                &mp3,
+                pcm.map(|_| native_pcm.as_mut()),
+                &mut native_info
+                );
             let ffi_res = unsafe {
                 ffi::__mp3dec_decode_frame(
                     &mut ffi_decoder,
-                    ffi_mp3.as_ptr(),
-                    ffi_mp3.len() as _,
+                    mp3.as_ptr(),
+                    mp3.len() as _,
                     pcm.map(|_| ffi_pcm.as_mut_ptr())
                     .unwrap_or_else(ptr::null_mut),
                     &mut ffi_info
