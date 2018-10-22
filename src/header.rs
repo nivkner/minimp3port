@@ -1,5 +1,4 @@
 use ffi;
-use HDR_SIZE;
 
 #[inline]
 pub fn is_mono(hdr: &[u8]) -> bool {
@@ -125,70 +124,87 @@ pub fn sample_rate_hz(hdr: &[u8]) -> i32 {
 }
 
 #[cfg(test)]
+#[derive(Copy, Clone, Debug)]
+pub struct Header(pub [u8; 4]);
+
+#[cfg(test)]
+#[derive(Copy, Clone, Debug)]
+pub struct ValidHeader(pub [u8; 4]);
+
+#[cfg(test)]
 mod tests {
     use super::*;
+    use quickcheck::{Arbitrary, Gen};
 
-    quickcheck! {
-        fn test_is_valid(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize {
-                return true
-            }
-            is_valid(&hdr) == unsafe { (ffi::hdr_valid(hdr.as_ptr()) != 0) }
+    impl Arbitrary for Header {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            Header([
+                u8::arbitrary(g),
+                u8::arbitrary(g),
+                u8::arbitrary(g),
+                u8::arbitrary(g),
+            ])
+        }
+    }
+
+    impl Arbitrary for ValidHeader {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let mut header = ValidHeader([0xFF, 0, 0, 0]);
+            let options = [
+                226, 227, 242, 243, 244, 245, 246, 247, 250, 251, 252, 253, 254, 255,
+            ];
+            let idx = u8::arbitrary(g) % 14;
+            header.0[1] = options[idx as usize];
+            let options: Vec<u8> = (0u8..=255u8)
+                .filter(|num| num >> 4u8 != 15u8 && num >> 2u8 & 3u8 != 3u8)
+                .collect();
+            let idx = u8::arbitrary(g) % 180;
+            header.0[2] = options[idx as usize];
+            header.0[3] = u8::arbitrary(g);
+            assert!(is_valid(&header.0));
+            header
         }
     }
 
     quickcheck! {
-        fn test_compare(hdrs: Vec<u8>) -> bool {
-            if hdrs.len() < (HDR_SIZE * 2) as usize {
-                return true
-            }
-            let (hdr1, hdr2) = hdrs.split_at(HDR_SIZE as _);
-            compare(hdr1, hdr2) == unsafe { (ffi::hdr_compare(hdr1.as_ptr(), hdr2.as_ptr()) != 0) }
+        fn test_is_valid(hdr: Header) -> bool {
+            is_valid(&hdr.0) == unsafe { (ffi::hdr_valid(hdr.0.as_ptr()) != 0) }
         }
     }
 
     quickcheck! {
-        fn test_frame_bytes(hdr: Vec<u8>, free_format_bytes: i32) -> bool {
-            if hdr.len() < HDR_SIZE as usize || !is_valid(&hdr) {
-                return true
-            }
-            frame_bytes(&hdr, free_format_bytes) == unsafe { ffi::hdr_frame_bytes(hdr.as_ptr(), free_format_bytes) }
+        fn test_compare(hdr1: Header, hdr2: Header) -> bool {
+            compare(&hdr1.0, &hdr2.0) == unsafe { (ffi::hdr_compare(hdr1.0.as_ptr(), hdr2.0.as_ptr()) != 0) }
         }
     }
 
     quickcheck! {
-        fn test_padding(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize {
-                return true
-            }
-            padding(&hdr) == unsafe { ffi::hdr_padding(hdr.as_ptr()) }
+        fn test_frame_bytes(hdr: ValidHeader, free_format_bytes: i32) -> bool {
+            frame_bytes(&hdr.0, free_format_bytes) == unsafe { ffi::hdr_frame_bytes(hdr.0.as_ptr(), free_format_bytes) }
         }
     }
 
     quickcheck! {
-        fn test_frame_samples(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize {
-                return true
-            }
-            frame_samples(&hdr) as i64 == unsafe { ffi::hdr_frame_samples(hdr.as_ptr()) as i64 }
+        fn test_padding(hdr: Header) -> bool {
+            padding(&hdr.0) == unsafe { ffi::hdr_padding(hdr.0.as_ptr()) }
         }
     }
 
     quickcheck! {
-        fn test_bitrate_kbps(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize || !is_valid(&hdr) {
-                return true
-            }
-            bitrate_kbps(&hdr) as i64 == unsafe { ffi::hdr_bitrate_kbps(hdr.as_ptr()) as i64 }
+        fn test_frame_samples(hdr: Header) -> bool {
+            frame_samples(&hdr.0) as i64 == unsafe { ffi::hdr_frame_samples(hdr.0.as_ptr()) as i64 }
         }
     }
 
     quickcheck! {
-        fn test_sample_rate_hz(hdr: Vec<u8>) -> bool {
-            if hdr.len() < HDR_SIZE as usize || !is_valid(&hdr) {
-                return true
-            }
-            sample_rate_hz(&hdr) as i64 == unsafe { ffi::hdr_sample_rate_hz(hdr.as_ptr()) as i64 }
+        fn test_bitrate_kbps(hdr: ValidHeader) -> bool {
+            bitrate_kbps(&hdr.0) as i64 == unsafe { ffi::hdr_bitrate_kbps(hdr.0.as_ptr()) as i64 }
+        }
+    }
+
+    quickcheck! {
+        fn test_sample_rate_hz(hdr: ValidHeader) -> bool {
+            sample_rate_hz(&hdr.0) as i64 == unsafe { ffi::hdr_sample_rate_hz(hdr.0.as_ptr()) as i64 }
         }
     }
 }
