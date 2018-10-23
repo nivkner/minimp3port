@@ -325,10 +325,10 @@ mod tests {
     }
 
     quickcheck! {
-        fn test_mp3d_match_frame(hdr: header::ValidHeader, data: Vec<u8>, frame_bytes: i32) -> bool {
+        fn test_mp3d_match_frame(hdr: header::ValidHeader, data: Vec<u8>, frame_bytes: u32) -> bool {
             let mp3: Vec<u8> = hdr.0.iter().chain(data.iter()).map(|n| *n).collect();
-            mp3d_match_frame(&mp3, frame_bytes) == unsafe {
-                ffi::mp3d_match_frame(mp3.as_ptr(), mp3.len() as _, frame_bytes) != 0
+            mp3d_match_frame(&mp3, frame_bytes as _) == unsafe {
+                ffi::mp3d_match_frame(mp3.as_ptr(), mp3.len() as _, frame_bytes as _) != 0
             }
         }
     }
