@@ -150,15 +150,15 @@ mod tests {
     impl Arbitrary for ValidHeader {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let mut header = ValidHeader([0xFF, 0, 0, 0]);
-            let options = [
-                226, 227, 242, 243, 244, 245, 246, 247, 250, 251, 252, 253, 254, 255,
-            ];
-            let idx = u8::arbitrary(g) % 14;
+            let options: Vec<u8> = (0u8..=255u8)
+                .filter(|num| num >> 1u8 & 3u8 != 0u8 && ((num & 0xF0u8) == 0xF0u8 || (num & 0xFEu8) == 0xE2u8))
+                .collect();
+            let idx = u8::arbitrary(g) % options.len() as u8;
             header.0[1] = options[idx as usize];
             let options: Vec<u8> = (0u8..=255u8)
                 .filter(|num| num >> 4u8 != 15u8 && num >> 2u8 & 3u8 != 3u8)
                 .collect();
-            let idx = u8::arbitrary(g) % 180;
+            let idx = u8::arbitrary(g) % options.len() as u8;
             header.0[2] = options[idx as usize];
             header.0[3] = u8::arbitrary(g);
             assert!(is_valid(&header.0));
