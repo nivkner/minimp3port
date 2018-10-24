@@ -149,11 +149,11 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
 
     let main_data_begin = if header::test_mpeg1(hdr) {
         gr_count *= 2;
-        let data = unsafe { ffi::get_bits(bs, 9) };
-        scfsi = unsafe { ffi::get_bits(bs, 7 + gr_count) };
+        let data = get_bits(bs, 9);
+        scfsi = get_bits(bs, 7 + gr_count as u32);
         data
     } else {
-        unsafe { ffi::get_bits(bs, 8 + gr_count) >> gr_count }
+        get_bits(bs, 8 + gr_count as u32) >> gr_count
     };
 
     let mut part_23_sum = 0;
@@ -165,27 +165,26 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
         if header::is_mono(hdr) {
             scfsi <<= 4;
         }
-        gr.part_23_length = unsafe { ffi::get_bits(bs, 12) as _ };
+        gr.part_23_length = get_bits(bs, 12) as _;
         part_23_sum += gr.part_23_length as i32;
-        gr.big_values = unsafe { ffi::get_bits(bs, 9) as _ };
+        gr.big_values = get_bits(bs, 9) as _;
         if gr.big_values > 288 {
             return -1;
         }
 
-        gr.global_gain = unsafe { ffi::get_bits(bs, 8) as _ };
-        gr.scalefac_compress =
-            unsafe { ffi::get_bits(bs, if header::test_mpeg1(hdr) { 4 } else { 9 }) as _ };
+        gr.global_gain = get_bits(bs, 8) as _;
+        gr.scalefac_compress = get_bits(bs, if header::test_mpeg1(hdr) { 4 } else { 9 }) as _;
         gr.sfbtab = G_SCF_LONG[sr_idx as usize].as_ptr();
         gr.n_long_sfb = 22;
         gr.n_short_sfb = 0;
 
-        if unsafe { ffi::get_bits(bs, 1) != 0 } {
-            gr.block_type = unsafe { ffi::get_bits(bs, 2) as _ };
+        if get_bits(bs, 1) != 0 {
+            gr.block_type = get_bits(bs, 2) as _;
             if gr.block_type == 0 {
                 return -1;
             }
 
-            gr.mixed_block_flag = unsafe { ffi::get_bits(bs, 1) as _ };
+            gr.mixed_block_flag = get_bits(bs, 1) as _;
             gr.region_count[0] = 7;
             gr.region_count[1] = 255;
             if gr.block_type == SHORT_BLOCK_TYPE {
@@ -203,19 +202,19 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
                 }
             }
 
-            tables = unsafe { ffi::get_bits(bs, 10) as _ };
+            tables = get_bits(bs, 10) as _;
             tables <<= 5;
 
             for i in 0..3 {
-                gr.subblock_gain[i] = unsafe { ffi::get_bits(bs, 3) as _ }
+                gr.subblock_gain[i] = get_bits(bs, 3) as _
             }
         } else {
             gr.block_type = 0;
             gr.mixed_block_flag = 0;
-            tables = unsafe { ffi::get_bits(bs, 15) as _ };
+            tables = get_bits(bs, 15) as _;
 
-            gr.region_count[0] = unsafe { ffi::get_bits(bs, 4) as _ };
-            gr.region_count[1] = unsafe { ffi::get_bits(bs, 3) as _ };
+            gr.region_count[0] = get_bits(bs, 4) as _;
+            gr.region_count[1] = get_bits(bs, 3) as _;
             gr.region_count[2] = 255;
         }
 
@@ -223,13 +222,13 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
         gr.table_select[1] = ((tables >> 5) & 31) as _;
         gr.table_select[2] = (tables & 31) as _;
         gr.preflag = if header::test_mpeg1(hdr) {
-            unsafe { ffi::get_bits(bs, 1) as _ }
+            get_bits(bs, 1) as _
         } else {
             (gr.scalefac_compress >= 500) as _
         };
 
-        gr.scalefac_scale = unsafe { ffi::get_bits(bs, 1) as _ };
-        gr.count1_table = unsafe { ffi::get_bits(bs, 1) as _ };
+        gr.scalefac_scale = get_bits(bs, 1) as _;
+        gr.count1_table = get_bits(bs, 1) as _;
         gr.scfsi = ((scfsi >> 12) & 15) as _;
         scfsi <<= 4;
     }
@@ -239,6 +238,35 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
     } else {
         main_data_begin as _
     }
+}
+
+fn get_bits(bs: &mut ffi::bs_t, amount: u32) -> u32 {
+    let s = bs.pos & 7;
+    let mut idx = bs.pos as usize >> 3;
+
+    bs.pos += amount as i32;
+    if bs.pos > bs.limit {
+        return 0;
+    }
+
+    let bs_slice = unsafe { slice::from_raw_parts(bs.buf, bs.limit as usize / 8) };
+
+    let mut next: u32 = bs_slice[idx] as u32 & (255 >> s);
+    idx += 1;
+    let mut shl: i32 = amount as i32 + s;
+
+    let mut cache: u32 = 0;
+    loop {
+        shl -= 8;
+        if shl <= 0 {
+            break;
+        }
+        cache |= next.wrapping_shl(shl as _);
+        next = bs_slice[idx] as u32;
+        idx += 1;
+    }
+
+    return (cache | (next >> -shl)) as _;
 }
 
 fn decode_frame(
@@ -506,6 +534,20 @@ mod tests {
             let mp3: Vec<u8> = hdr.0.iter().chain(data.iter()).map(|n| *n).collect();
             mp3d_match_frame(&mp3, frame_bytes as _) == unsafe {
                 ffi::mp3d_match_frame(mp3.as_ptr(), mp3.len() as _, frame_bytes as _) != 0
+            }
+        }
+    }
+
+    quickcheck! {
+        fn test_get_bits(data: Vec<u8>, amount: u32) -> bool {
+            let mut native_bs = ffi::bs_t {
+                buf: data.as_ptr(),
+                pos: 0,
+                limit: data.len() as i32 * 8,
+            };
+            let mut ffi_bs = native_bs;
+            get_bits(&mut native_bs, amount) == unsafe {
+                ffi::get_bits(&mut ffi_bs, amount as _)
             }
         }
     }
