@@ -12,28 +12,26 @@ use std::ptr;
 use std::slice;
 
 #[no_mangle]
-pub extern "C" fn mp3dec_init(dec: *mut ffi::mp3dec_t) {
-    unsafe { (*dec).header[0] = 0 }
+pub extern "C" fn mp3dec_init(dec: &mut ffi::mp3dec_t) {
+    dec.header[0] = 0
 }
 
 #[no_mangle]
-pub extern "C" fn mp3dec_decode_frame(
+pub unsafe extern "C" fn mp3dec_decode_frame(
     dec: &mut ffi::mp3dec_t,
     mp3: *const u8,
     mp3_bytes: ::std::os::raw::c_int,
     pcm: *mut ffi::mp3d_sample_t,
     info: &mut ffi::mp3dec_frame_info_t,
 ) -> ::std::os::raw::c_int {
-    let mp3 = unsafe { slice::from_raw_parts(mp3, mp3_bytes as _) };
-    let pcm_slice = unsafe {
-        if pcm.is_null() {
-            None
-        } else {
-            Some(slice::from_raw_parts_mut(
-                pcm,
-                MINIMP3_MAX_SAMPLES_PER_FRAME as _,
-            ))
-        }
+    let mp3 = slice::from_raw_parts(mp3, mp3_bytes as _);
+    let pcm_slice = if pcm.is_null() {
+        None
+    } else {
+        Some(slice::from_raw_parts_mut(
+            pcm,
+            MINIMP3_MAX_SAMPLES_PER_FRAME as _,
+        ))
     };
     decode_frame(dec, mp3, pcm_slice, info)
 }
