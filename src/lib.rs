@@ -321,9 +321,7 @@ fn decode_frame(
     let mut scratch: ffi::mp3dec_scratch_t = unsafe { mem::uninitialized() };
     let mut success = 1;
     if info.layer == 3 {
-        let main_data_begin = unsafe {
-            ffi::L3_read_side_info(&mut bs_frame, scratch.gr_info.as_mut_ptr(), hdr.as_ptr())
-        };
+        let main_data_begin = l3_read_side_info(&mut bs_frame, &mut scratch.gr_info, hdr);
         if main_data_begin < 0 || bs_frame.pos > bs_frame.limit {
             mp3dec_init(decoder);
             return 0;
@@ -435,8 +433,7 @@ mod tests {
                 .field(
                     "mdct_overlap",
                     &format!("{:?}", &self.mdct_overlap[0][..10]),
-                )
-                .field("qmf_state", &format!("{:?}", &self.qmf_state[..10]))
+                ).field("qmf_state", &format!("{:?}", &self.qmf_state[..10]))
                 .field("reserv", &self.reserv)
                 .field("free_format_bytes", &self.free_format_bytes)
                 .field("header", &format!("{:?}", &self.header[..]))

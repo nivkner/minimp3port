@@ -159,8 +159,7 @@ mod tests {
                 .filter(|num| {
                     num >> 1u8 & 3u8 != 0u8
                         && ((num & 0xF0u8) == 0xF0u8 || (num & 0xFEu8) == 0xE2u8)
-                })
-                .collect();
+                }).collect();
             let idx = u8::arbitrary(g) % options.len() as u8;
             header.0[1] = options[idx as usize];
             let options: Vec<u8> = (0u8..=255u8)
