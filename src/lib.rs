@@ -533,29 +533,14 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Debug)]
-    struct NonEmptyVec(Vec<u8>);
-
-    impl Arbitrary for NonEmptyVec {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            NonEmptyVec(
-                [u8::arbitrary(g)]
-                    .iter()
-                    .map(|n| *n)
-                    .chain(Vec::arbitrary(g).into_iter())
-                    .collect(),
-            )
-        }
-    }
-
     quickcheck! {
-        fn test_get_bits(data: NonEmptyVec, position: u32, amount: u32) -> bool {
+        fn test_get_bits(data: Vec<u8>, position: u32, amount: u32) -> bool {
             let amount = amount % 32; // asking for more than 32
             // will cause undefined behavior in the c version
             let mut native_bs = ffi::bs_t {
-                buf: data.0.as_ptr(),
+                buf: data.as_ptr(),
                 pos: position as i32,
-                limit: data.0.len() as i32 * 8,
+                limit: data.len() as i32 * 8,
             };
             let mut ffi_bs = native_bs;
             get_bits(&mut native_bs, amount) == unsafe {
