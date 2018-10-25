@@ -259,7 +259,7 @@ fn get_bits(bs: &mut ffi::bs_t, amount: u32) -> u32 {
         if shl <= 0 {
             break;
         }
-        cache |= next.wrapping_shl(shl as _);
+        cache |= next << shl;
         next = bs_slice[idx] as u32;
         idx += 1;
     }
@@ -549,10 +549,12 @@ mod tests {
     }
 
     quickcheck! {
-        fn test_get_bits(data: NonEmptyVec, amount: u32) -> bool {
+        fn test_get_bits(data: NonEmptyVec, position: u32, amount: u32) -> bool {
+            let amount = amount % 32; // asking for more than 32
+            // will cause undefined behavior in the c version
             let mut native_bs = ffi::bs_t {
                 buf: data.0.as_ptr(),
-                pos: 0,
+                pos: position as i32,
                 limit: data.0.len() as i32 * 8,
             };
             let mut ffi_bs = native_bs;
