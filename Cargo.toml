@@ -6,8 +6,8 @@ authors = ["Niv Kaminer <nivkner@zoho.com>"]
 [lib]
 crate-type = ["staticlib"]
 
-[build-dependencies]
-cc = "1"
+[dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 quickcheck = "0.7"

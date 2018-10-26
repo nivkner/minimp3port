@@ -1,9 +1,8 @@
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
+extern crate libc;
 
-#[allow(unused)]
-#[allow(bad_style)]
 mod ffi;
 mod header;
 
@@ -583,7 +582,7 @@ mod tests {
                 &mut native_info
                 );
             let ffi_res = unsafe {
-                ffi::__mp3dec_decode_frame(
+                ffi::mp3dec_decode_frame(
                     &mut ffi_decoder,
                     mp3.as_ptr(),
                     mp3.len() as _,
