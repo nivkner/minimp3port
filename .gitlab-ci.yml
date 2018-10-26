@@ -2,7 +2,7 @@ image: alpine:latest
 
 before_script:
   - apk update
-  - apk add gcc git clang-dev cargo
+  - apk add gcc git cargo
 
 test1:
   stage: test
