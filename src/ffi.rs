@@ -2202,8 +2202,9 @@ pub unsafe extern "C" fn L3_stereo_process(
             if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
                 kl = g_pan[(2i32 as libc::c_uint).wrapping_mul(ipos) as usize];
                 kr = g_pan[(2i32 as libc::c_uint)
-                    .wrapping_mul(ipos)
-                    .wrapping_add(1i32 as libc::c_uint) as usize]
+                               .wrapping_mul(ipos)
+                               .wrapping_add(1i32 as libc::c_uint)
+                               as usize]
             } else {
                 kl = 1i32 as libc::c_float;
                 kr = L3_ldexp_q2(
@@ -4657,9 +4658,9 @@ pub unsafe extern "C" fn L3_huffman(
                                 1i32
                             }) as libc::c_float
                     } else {
-                        *dst = g_pow43[((16i32 + lsb) as libc::c_uint)
-                            .wrapping_sub((16i32 as libc::c_uint).wrapping_mul(bs_cache >> 31i32))
-                            as usize]
+                        *dst = g_pow43[((16i32 + lsb) as libc::c_uint).wrapping_sub(
+                            (16i32 as libc::c_uint).wrapping_mul(bs_cache >> 31i32),
+                        ) as usize]
                             * one
                     }
                     bs_cache <<= if 0 != lsb { 1i32 } else { 0i32 };
@@ -4706,7 +4707,7 @@ pub unsafe extern "C" fn L3_huffman(
         }
         bs_cache <<= leaf_0 & 7i32;
         bs_sh += leaf_0 & 7i32;
-        if wrapping_offset_from(bs_next_ptr,(*bs).buf) as libc::c_long * 8i32 as libc::c_long
+        if wrapping_offset_from(bs_next_ptr, (*bs).buf) as libc::c_long * 8i32 as libc::c_long
             - 24i32 as libc::c_long
             + bs_sh as libc::c_long
             > layer3gr_limit as libc::c_long
@@ -4946,7 +4947,8 @@ pub unsafe extern "C" fn L3_pow_43(mut x: libc::c_int) -> libc::c_float {
         frac = ((x & 63i32) - sign) as libc::c_float / ((x & !63i32) + sign) as libc::c_float;
         return g_pow43[(16i32 + (x + sign >> 6i32)) as usize]
             * (1.0f32
-                + frac * (4.0f32 / 3i32 as libc::c_float + frac * (2.0f32 / 9i32 as libc::c_float)))
+                + frac
+                    * (4.0f32 / 3i32 as libc::c_float + frac * (2.0f32 / 9i32 as libc::c_float)))
             * mult as libc::c_float;
     };
 }
@@ -5072,7 +5074,8 @@ pub unsafe extern "C" fn L3_decode_scalefactors(
     ];
     let mut scf_partition: *const uint8_t =
         g_scf_partitions[((0 != (*gr).n_short_sfb) as libc::c_int
-            + (0 == (*gr).n_long_sfb) as libc::c_int) as usize]
+                             + (0 == (*gr).n_long_sfb) as libc::c_int)
+                             as usize]
             .as_ptr();
     let mut scf_size: [uint8_t; 4] = [0; 4];
     let mut iscf: [uint8_t; 40] = [0; 40];

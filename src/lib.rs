@@ -10,18 +10,21 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-#[no_mangle]
-pub extern "C" fn mp3dec_init(dec: &mut ffi::mp3dec_t) {
+pub use ffi::{
+    hdr_bitrate_kbps, hdr_sample_rate_hz, mp3d_find_frame, mp3d_sample_t, mp3dec_frame_info_t,
+    mp3dec_init, mp3dec_t,
+};
+
+fn decoder_init(dec: &mut ffi::mp3dec_t) {
     dec.header[0] = 0
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn mp3dec_decode_frame(
-    dec: &mut ffi::mp3dec_t,
+pub unsafe fn mp3dec_decode_frame(
+    dec: *mut ffi::mp3dec_t,
     mp3: *const u8,
     mp3_bytes: ::std::os::raw::c_int,
     pcm: *mut ffi::mp3d_sample_t,
-    info: &mut ffi::mp3dec_frame_info_t,
+    info: *mut ffi::mp3dec_frame_info_t,
 ) -> ::std::os::raw::c_int {
     let mp3 = slice::from_raw_parts(mp3, mp3_bytes as _);
     let pcm_slice = if pcm.is_null() {
@@ -32,7 +35,12 @@ pub unsafe extern "C" fn mp3dec_decode_frame(
             MINIMP3_MAX_SAMPLES_PER_FRAME as _,
         ))
     };
-    decode_frame(dec, mp3, pcm_slice, info)
+    decode_frame(
+        dec.as_mut().unwrap(),
+        mp3,
+        pcm_slice,
+        info.as_mut().unwrap(),
+    )
 }
 
 const HDR_SIZE: i32 = 4;
@@ -41,7 +49,7 @@ const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 const SHORT_BLOCK_TYPE: u8 = 2;
 
-fn mp3d_find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
+fn find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
     let valid_frames = mp3
         .windows(HDR_SIZE as _)
         .enumerate()
@@ -284,7 +292,7 @@ fn decode_frame(
     let mut i = 0;
     if frame_size == 0 {
         unsafe { ptr::write_bytes(decoder, 0, 1) }
-        i = mp3d_find_frame(mp3, &mut decoder.free_format_bytes, &mut frame_size);
+        i = find_frame(mp3, &mut decoder.free_format_bytes, &mut frame_size);
         if frame_size == 0 || i + frame_size > mp3.len() as _ {
             info.frame_bytes = i;
             return 0;
@@ -320,7 +328,7 @@ fn decode_frame(
     if info.layer == 3 {
         let main_data_begin = l3_read_side_info(&mut bs_frame, &mut scratch.gr_info, hdr);
         if main_data_begin < 0 || bs_frame.pos > bs_frame.limit {
-            mp3dec_init(decoder);
+            decoder_init(decoder);
             return 0;
         }
         success = unsafe {
@@ -388,7 +396,7 @@ fn decode_frame(
                 pcm_pos += 384 * info.channels as usize;
             }
             if bs_frame.pos > bs_frame.limit {
-                mp3dec_init(decoder);
+                decoder_init(decoder);
                 return 0;
             }
         }
@@ -463,13 +471,13 @@ mod tests {
     }
 
     quickcheck! {
-        fn test_mp3d_find_frame(mp3: Vec<u8>, free_format_bytes: i32, ptr_frame_bytes: i32) -> bool {
+        fn test_find_frame(mp3: Vec<u8>, free_format_bytes: i32, ptr_frame_bytes: i32) -> bool {
             let mut native_ffb = free_format_bytes;
             let mut native_pfb = ptr_frame_bytes;
             let mut ffi_ffb = free_format_bytes;
             let mut ffi_pfb = ptr_frame_bytes;
 
-            let native_res = mp3d_find_frame(&mp3, &mut native_ffb, &mut native_pfb);
+            let native_res = find_frame(&mp3, &mut native_ffb, &mut native_pfb);
             let ffi_res = unsafe {
                 ffi::mp3d_find_frame(
                     mp3.as_ptr(),

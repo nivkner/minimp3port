@@ -2,12 +2,12 @@ image: alpine:latest
 
 before_script:
   - apk update
-  - apk add gcc git cargo
+  - apk add git cargo
 
 test1:
   stage: test
   script:
     - cargo test
     - cargo build
-    - gcc -o minimp3 cver/minimp3_test.c -lm -Ltarget/debug -lminimp3port -ldl -lpthread
+    - mv target/debug/minimp3 minimp3
     - sh scripts/test.sh
