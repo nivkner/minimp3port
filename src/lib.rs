@@ -22,10 +22,10 @@ fn decoder_init(dec: &mut ffi::mp3dec_t) {
 pub unsafe fn mp3dec_decode_frame(
     dec: *mut ffi::mp3dec_t,
     mp3: *const u8,
-    mp3_bytes: ::std::os::raw::c_int,
+    mp3_bytes: libc::c_int,
     pcm: *mut ffi::mp3d_sample_t,
     info: *mut ffi::mp3dec_frame_info_t,
-) -> ::std::os::raw::c_int {
+) -> libc::c_int {
     let mp3 = slice::from_raw_parts(mp3, mp3_bytes as _);
     let pcm_slice = if pcm.is_null() {
         None
@@ -418,14 +418,14 @@ mod tests {
             mp3dec.mdct_overlap[1].copy_from_slice(&mdct_overlap[288..]);
             let qmf_state: Vec<_> = (0..960).map(|_| f32::arbitrary(g)).collect();
             mp3dec.qmf_state.copy_from_slice(&qmf_state);
-            mp3dec.reserv = ::std::os::raw::c_int::arbitrary(g);
-            mp3dec.free_format_bytes = ::std::os::raw::c_int::arbitrary(g);
+            mp3dec.reserv = libc::c_int::arbitrary(g);
+            mp3dec.free_format_bytes = libc::c_int::arbitrary(g);
             let header: Vec<_> = (0..4)
-                .map(|_| ::std::os::raw::c_uchar::arbitrary(g))
+                .map(|_| libc::c_uchar::arbitrary(g))
                 .collect();
             mp3dec.header.copy_from_slice(&header);
             let reserv_buf: Vec<_> = (0..511)
-                .map(|_| ::std::os::raw::c_uchar::arbitrary(g))
+                .map(|_| libc::c_uchar::arbitrary(g))
                 .collect();
             mp3dec.reserv_buf.copy_from_slice(&reserv_buf);
             mp3dec
@@ -461,11 +461,11 @@ mod tests {
     impl Arbitrary for ffi::mp3dec_frame_info_t {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let mut mp3dec_frame_info: ffi::mp3dec_frame_info_t = unsafe { mem::uninitialized() };
-            mp3dec_frame_info.frame_bytes = ::std::os::raw::c_int::arbitrary(g);
-            mp3dec_frame_info.channels = ::std::os::raw::c_int::arbitrary(g);
-            mp3dec_frame_info.hz = ::std::os::raw::c_int::arbitrary(g);
-            mp3dec_frame_info.layer = ::std::os::raw::c_int::arbitrary(g);
-            mp3dec_frame_info.bitrate_kbps = ::std::os::raw::c_int::arbitrary(g);
+            mp3dec_frame_info.frame_bytes = libc::c_int::arbitrary(g);
+            mp3dec_frame_info.channels = libc::c_int::arbitrary(g);
+            mp3dec_frame_info.hz = libc::c_int::arbitrary(g);
+            mp3dec_frame_info.layer = libc::c_int::arbitrary(g);
+            mp3dec_frame_info.bitrate_kbps = libc::c_int::arbitrary(g);
             mp3dec_frame_info
         }
     }
