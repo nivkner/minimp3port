@@ -141,6 +141,7 @@ pub struct ValidHeader(pub [u8; 4]);
 mod tests {
     use super::*;
     use quickcheck::{Arbitrary, Gen};
+    use std::vec::Vec;
 
     impl Arbitrary for Header {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {

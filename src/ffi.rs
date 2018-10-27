@@ -2,7 +2,7 @@
 #![allow(bad_style)]
 
 fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
-    let pointee_size = ::std::mem::size_of::<T>();
+    let pointee_size = ::core::mem::size_of::<T>();
     assert!(0 < pointee_size && pointee_size <= isize::max_value() as usize);
 
     let d = isize::wrapping_sub(this as _, origin as _);
@@ -185,7 +185,7 @@ pub unsafe fn mp3dec_decode_frame(
         memset(
             dec as *mut libc::c_void,
             0i32,
-            ::std::mem::size_of::<mp3dec_t>() as libc::c_ulong,
+            ::core::mem::size_of::<mp3dec_t>() as libc::c_ulong,
         );
         i = mp3d_find_frame(
             mp3,
@@ -241,7 +241,7 @@ pub unsafe fn mp3dec_decode_frame(
                         memset(
                             scratch.grbuf[0usize].as_mut_ptr() as *mut libc::c_void,
                             0i32,
-                            ((576i32 * 2i32) as libc::c_ulong).wrapping_mul(::std::mem::size_of::<
+                            ((576i32 * 2i32) as libc::c_ulong).wrapping_mul(::core::mem::size_of::<
                                 libc::c_float,
                             >(
                             )
@@ -284,7 +284,7 @@ pub unsafe fn mp3dec_decode_frame(
                 scratch.grbuf[0usize].as_mut_ptr() as *mut libc::c_void,
                 0i32,
                 ((576i32 * 2i32) as libc::c_ulong)
-                    .wrapping_mul(::std::mem::size_of::<libc::c_float>() as libc::c_ulong),
+                    .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
             );
             i = 0i32;
             igr = 0i32;
@@ -314,7 +314,7 @@ pub unsafe fn mp3dec_decode_frame(
                         scratch.grbuf[0usize].as_mut_ptr() as *mut libc::c_void,
                         0i32,
                         ((576i32 * 2i32) as libc::c_ulong)
-                            .wrapping_mul(::std::mem::size_of::<libc::c_float>() as libc::c_ulong),
+                            .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
                     );
                     pcm = pcm.offset((384i32 * (*info).channels) as isize)
                 }
@@ -356,7 +356,7 @@ pub unsafe fn mp3d_synth_granule(
     memcpy(
         lins as *mut libc::c_void,
         qmf_state as *const libc::c_void,
-        (::std::mem::size_of::<libc::c_float>() as libc::c_ulong)
+        (::core::mem::size_of::<libc::c_float>() as libc::c_ulong)
             .wrapping_mul(15i32 as libc::c_ulong)
             .wrapping_mul(64i32 as libc::c_ulong),
     );
@@ -381,7 +381,7 @@ pub unsafe fn mp3d_synth_granule(
         memcpy(
             qmf_state as *mut libc::c_void,
             lins.offset((nbands * 64i32) as isize) as *const libc::c_void,
-            (::std::mem::size_of::<libc::c_float>() as libc::c_ulong)
+            (::core::mem::size_of::<libc::c_float>() as libc::c_ulong)
                 .wrapping_mul(15i32 as libc::c_ulong)
                 .wrapping_mul(64i32 as libc::c_ulong),
         );
@@ -1026,7 +1026,7 @@ pub unsafe fn L12_apply_scf_384(
         dst.offset(((*sci).stereo_bands as libc::c_int * 18i32) as isize) as *const libc::c_void,
         ((((*sci).total_bands as libc::c_int - (*sci).stereo_bands as libc::c_int) * 18i32)
             as libc::c_ulong)
-            .wrapping_mul(::std::mem::size_of::<libc::c_float>() as libc::c_ulong),
+            .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
     );
     i = 0i32;
     while i < (*sci).total_bands as libc::c_int {
@@ -1895,13 +1895,13 @@ pub unsafe fn L3_imdct_short(
         memcpy(
             tmp.as_mut_ptr() as *mut libc::c_void,
             grbuf as *const libc::c_void,
-            ::std::mem::size_of::<[libc::c_float; 18]>() as libc::c_ulong,
+            ::core::mem::size_of::<[libc::c_float; 18]>() as libc::c_ulong,
         );
         memcpy(
             grbuf as *mut libc::c_void,
             overlap as *const libc::c_void,
             (6i32 as libc::c_ulong)
-                .wrapping_mul(::std::mem::size_of::<libc::c_float>() as libc::c_ulong),
+                .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
         );
         L3_imdct12(
             tmp.as_mut_ptr(),
@@ -2052,7 +2052,7 @@ pub unsafe fn L3_reorder(
         grbuf as *mut libc::c_void,
         scratch as *const libc::c_void,
         (wrapping_offset_from(dst, scratch) as libc::c_long as libc::c_ulong)
-            .wrapping_mul(::std::mem::size_of::<libc::c_float>() as libc::c_ulong),
+            .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
     );
 }
 pub unsafe fn L3_midside_stereo(mut left: *mut libc::c_float, mut n: libc::c_int) {

@@ -1,14 +1,19 @@
+#![no_std]
+
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
 extern crate libc;
 
+#[cfg(test)]
+extern crate std;
+
 mod ffi;
 mod header;
 
-use std::mem;
-use std::ptr;
-use std::slice;
+use core::mem;
+use core::ptr;
+use core::slice;
 
 pub use ffi::{
     hdr_bitrate_kbps, hdr_sample_rate_hz, mp3d_find_frame, mp3d_sample_t, mp3dec_frame_info_t,
@@ -408,7 +413,8 @@ fn decode_frame(
 mod tests {
     use super::*;
     use quickcheck::{Arbitrary, Gen};
-    use std::fmt;
+    use core::fmt;
+    use std::vec::Vec;
 
     impl Arbitrary for ffi::mp3dec_t {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
@@ -437,11 +443,11 @@ mod tests {
             fmt.debug_struct("mp3dec_t")
                 .field(
                     "mdct_overlap",
-                    &format!("{:?}", &self.mdct_overlap[0][..10]),
-                ).field("qmf_state", &format!("{:?}", &self.qmf_state[..10]))
+                    &format_args!("{:?}", &self.mdct_overlap[0][..10]),
+                ).field("qmf_state", &format_args!("{:?}", &self.qmf_state[..10]))
                 .field("reserv", &self.reserv)
                 .field("free_format_bytes", &self.free_format_bytes)
-                .field("header", &format!("{:?}", &self.header[..]))
+                .field("header", &format_args!("{:?}", &self.header[..]))
                 .finish()
         }
     }
