@@ -1,6 +1,5 @@
 #![allow(unused)]
 #![allow(bad_style)]
-#![allow(private_no_mangle_fns)]
 
 fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
     let pointee_size = ::std::mem::size_of::<T>();
@@ -118,12 +117,12 @@ pub struct L12_subband_alloc_t {
     pub band_count: uint8_t,
 }
 /* __cplusplus */
-pub unsafe extern "C" fn mp3dec_init(mut dec: *mut mp3dec_t) {
+pub unsafe fn mp3dec_init(mut dec: *mut mp3dec_t) {
     (*dec).header[0usize] = 0i32 as libc::c_uchar;
 }
 /* MINIMP3_FLOAT_OUTPUT */
 /* MINIMP3_FLOAT_OUTPUT */
-pub unsafe extern "C" fn mp3dec_decode_frame(
+pub unsafe fn mp3dec_decode_frame(
     mut dec: *mut mp3dec_t,
     mut mp3: *const uint8_t,
     mut mp3_bytes: libc::c_int,
@@ -332,8 +331,7 @@ pub unsafe extern "C" fn mp3dec_decode_frame(
             as libc::c_int;
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn hdr_frame_samples(mut h: *const uint8_t) -> libc::c_uint {
+pub unsafe fn hdr_frame_samples(mut h: *const uint8_t) -> libc::c_uint {
     return (if *h.offset(1isize) as libc::c_int & 6i32 == 6i32 {
         384i32
     } else {
@@ -341,8 +339,7 @@ pub unsafe extern "C" fn hdr_frame_samples(mut h: *const uint8_t) -> libc::c_uin
     }) as libc::c_uint;
 }
 /* MINIMP3_ONLY_SIMD */
-#[no_mangle]
-pub unsafe extern "C" fn mp3d_synth_granule(
+pub unsafe fn mp3d_synth_granule(
     mut qmf_state: *mut libc::c_float,
     mut grbuf: *mut libc::c_float,
     mut nbands: libc::c_int,
@@ -390,8 +387,7 @@ pub unsafe extern "C" fn mp3d_synth_granule(
         );
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn mp3d_synth(
+pub unsafe fn mp3d_synth(
     mut xl: *mut libc::c_float,
     mut dstl: *mut mp3d_sample_t,
     mut nch: libc::c_int,
@@ -852,8 +848,7 @@ pub unsafe extern "C" fn mp3d_synth(
     }
 }
 /* MINIMP3_ONLY_SIMD */
-#[no_mangle]
-pub unsafe extern "C" fn mp3d_scale_pcm(mut sample: libc::c_float) -> int16_t {
+pub unsafe fn mp3d_scale_pcm(mut sample: libc::c_float) -> int16_t {
     if sample as libc::c_double >= 32766.5f64 {
         return 32767i32 as int16_t;
     } else if sample as libc::c_double <= -32767.5f64 {
@@ -867,8 +862,7 @@ pub unsafe extern "C" fn mp3d_scale_pcm(mut sample: libc::c_float) -> int16_t {
 }
 /* MINIMP3_FLOAT_OUTPUT */
 /* MINIMP3_FLOAT_OUTPUT */
-#[no_mangle]
-pub unsafe extern "C" fn mp3d_synth_pair(
+pub unsafe fn mp3d_synth_pair(
     mut pcm: *mut mp3d_sample_t,
     mut nch: libc::c_int,
     mut z: *const libc::c_float,
@@ -900,8 +894,7 @@ pub unsafe extern "C" fn mp3d_synth_pair(
     a += *z.offset((0i32 * 64i32) as isize) * -5i32 as libc::c_float;
     *pcm.offset((16i32 * nch) as isize) = mp3d_scale_pcm(a);
 }
-#[no_mangle]
-pub unsafe extern "C" fn mp3d_DCT_II(mut grbuf: *mut libc::c_float, mut n: libc::c_int) {
+pub unsafe fn mp3d_DCT_II(mut grbuf: *mut libc::c_float, mut n: libc::c_int) {
     static mut g_sec: [libc::c_float; 24] = [
         10.190008163452149f32,
         0.5006030201911926f32,
@@ -1019,8 +1012,7 @@ pub unsafe extern "C" fn mp3d_DCT_II(mut grbuf: *mut libc::c_float, mut n: libc:
         k += 1
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L12_apply_scf_384(
+pub unsafe fn L12_apply_scf_384(
     mut sci: *mut L12_scale_info,
     mut scf: *const libc::c_float,
     mut dst: *mut libc::c_float,
@@ -1049,8 +1041,7 @@ pub unsafe extern "C" fn L12_apply_scf_384(
         scf = scf.offset(6isize)
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L12_dequantize_granule(
+pub unsafe fn L12_dequantize_granule(
     mut grbuf: *mut libc::c_float,
     mut bs: *mut bs_t,
     mut sci: *mut L12_scale_info,
@@ -1104,8 +1095,7 @@ pub unsafe extern "C" fn L12_dequantize_granule(
     }
     return group_size * 4i32;
 }
-#[no_mangle]
-pub unsafe extern "C" fn get_bits(mut bs: *mut bs_t, mut n: libc::c_int) -> uint32_t {
+pub unsafe fn get_bits(mut bs: *mut bs_t, mut n: libc::c_int) -> uint32_t {
     let mut next: uint32_t = 0;
     let mut cache: uint32_t = 0i32 as uint32_t;
     let mut s: uint32_t = ((*bs).pos & 7i32) as uint32_t;
@@ -1131,8 +1121,7 @@ pub unsafe extern "C" fn get_bits(mut bs: *mut bs_t, mut n: libc::c_int) -> uint
         return cache | next >> -shl;
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn L12_read_scale_info(
+pub unsafe fn L12_read_scale_info(
     mut hdr: *const uint8_t,
     mut bs: *mut bs_t,
     mut sci: *mut L12_scale_info,
@@ -1285,8 +1274,7 @@ pub unsafe extern "C" fn L12_read_scale_info(
         i += 1
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L12_read_scalefactors(
+pub unsafe fn L12_read_scalefactors(
     mut bs: *mut bs_t,
     mut pba: *mut uint8_t,
     mut scfcod: *mut uint8_t,
@@ -1378,8 +1366,7 @@ pub unsafe extern "C" fn L12_read_scalefactors(
         i += 1
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L12_subband_alloc_table(
+pub unsafe fn L12_subband_alloc_table(
     mut hdr: *const uint8_t,
     mut sci: *mut L12_scale_info,
 ) -> *const L12_subband_alloc_t {
@@ -1479,8 +1466,7 @@ pub unsafe extern "C" fn L12_subband_alloc_table(
     }) as uint8_t;
     return alloc;
 }
-#[no_mangle]
-pub unsafe extern "C" fn hdr_bitrate_kbps(mut h: *const uint8_t) -> libc::c_uint {
+pub unsafe fn hdr_bitrate_kbps(mut h: *const uint8_t) -> libc::c_uint {
     static mut halfrate: [[[uint8_t; 15]; 3]; 2] = [
         [
             [
@@ -1595,8 +1581,7 @@ pub unsafe extern "C" fn hdr_bitrate_kbps(mut h: *const uint8_t) -> libc::c_uint
         [(*h.offset(2isize) as libc::c_int >> 4i32) as usize] as libc::c_int)
         as libc::c_uint;
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_save_reservoir(mut h: *mut mp3dec_t, mut s: *mut mp3dec_scratch_t) {
+pub unsafe fn L3_save_reservoir(mut h: *mut mp3dec_t, mut s: *mut mp3dec_scratch_t) {
     let mut pos: libc::c_int =
         (((*s).bs.pos + 7i32) as libc::c_uint).wrapping_div(8u32) as libc::c_int;
     let mut remains: libc::c_int = ((*s).bs.limit as libc::c_uint)
@@ -1615,8 +1600,7 @@ pub unsafe extern "C" fn L3_save_reservoir(mut h: *mut mp3dec_t, mut s: *mut mp3
     }
     (*h).reserv = remains;
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_decode(
+pub unsafe fn L3_decode(
     mut h: *mut mp3dec_t,
     mut s: *mut mp3dec_scratch_t,
     mut gr_info: *mut L3_gr_info_t,
@@ -1691,8 +1675,7 @@ pub unsafe extern "C" fn L3_decode(
         gr_info = gr_info.offset(1isize)
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_change_sign(mut grbuf: *mut libc::c_float) {
+pub unsafe fn L3_change_sign(mut grbuf: *mut libc::c_float) {
     let mut b: libc::c_int = 0;
     let mut i: libc::c_int = 0;
     b = 0i32;
@@ -1707,8 +1690,7 @@ pub unsafe extern "C" fn L3_change_sign(mut grbuf: *mut libc::c_float) {
         grbuf = grbuf.offset(36isize)
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_imdct_gr(
+pub unsafe fn L3_imdct_gr(
     mut grbuf: *mut libc::c_float,
     mut overlap: *mut libc::c_float,
     mut block_type: libc::c_uint,
@@ -1781,8 +1763,7 @@ pub unsafe extern "C" fn L3_imdct_gr(
         );
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_imdct36(
+pub unsafe fn L3_imdct36(
     mut grbuf: *mut libc::c_float,
     mut overlap: *mut libc::c_float,
     mut window: *const libc::c_float,
@@ -1854,8 +1835,7 @@ pub unsafe extern "C" fn L3_imdct36(
     }
 }
 /* MINIMP3_ONLY_SIMD */
-#[no_mangle]
-pub unsafe extern "C" fn L3_dct3_9(mut y: *mut libc::c_float) {
+pub unsafe fn L3_dct3_9(mut y: *mut libc::c_float) {
     let mut s0: libc::c_float = 0.;
     let mut s1: libc::c_float = 0.;
     let mut s2: libc::c_float = 0.;
@@ -1905,8 +1885,7 @@ pub unsafe extern "C" fn L3_dct3_9(mut y: *mut libc::c_float) {
     *y.offset(7isize) = s2 - s1;
     *y.offset(8isize) = s4 + s7;
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_imdct_short(
+pub unsafe fn L3_imdct_short(
     mut grbuf: *mut libc::c_float,
     mut overlap: *mut libc::c_float,
     mut nbands: libc::c_int,
@@ -1944,8 +1923,7 @@ pub unsafe extern "C" fn L3_imdct_short(
         grbuf = grbuf.offset(18isize)
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_imdct12(
+pub unsafe fn L3_imdct12(
     mut x: *mut libc::c_float,
     mut dst: *mut libc::c_float,
     mut overlap: *mut libc::c_float,
@@ -1988,8 +1966,7 @@ pub unsafe extern "C" fn L3_imdct12(
         i += 1
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_idct3(
+pub unsafe fn L3_idct3(
     mut x0: libc::c_float,
     mut x1: libc::c_float,
     mut x2: libc::c_float,
@@ -2001,8 +1978,7 @@ pub unsafe extern "C" fn L3_idct3(
     *dst.offset(0isize) = a1 + m1;
     *dst.offset(2isize) = a1 - m1;
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_antialias(mut grbuf: *mut libc::c_float, mut nbands: libc::c_int) {
+pub unsafe fn L3_antialias(mut grbuf: *mut libc::c_float, mut nbands: libc::c_int) {
     static mut g_aa: [[libc::c_float; 8]; 2] = [
         [
             0.8574929237365723f32,
@@ -2041,8 +2017,7 @@ pub unsafe extern "C" fn L3_antialias(mut grbuf: *mut libc::c_float, mut nbands:
         grbuf = grbuf.offset(18isize)
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_reorder(
+pub unsafe fn L3_reorder(
     mut grbuf: *mut libc::c_float,
     mut scratch: *mut libc::c_float,
     mut sfb: *const uint8_t,
@@ -2080,8 +2055,7 @@ pub unsafe extern "C" fn L3_reorder(
             .wrapping_mul(::std::mem::size_of::<libc::c_float>() as libc::c_ulong),
     );
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_midside_stereo(mut left: *mut libc::c_float, mut n: libc::c_int) {
+pub unsafe fn L3_midside_stereo(mut left: *mut libc::c_float, mut n: libc::c_int) {
     let mut i: libc::c_int = 0i32;
     let mut right: *mut libc::c_float = left.offset(576isize);
     /* HAVE_SIMD */
@@ -2093,8 +2067,7 @@ pub unsafe extern "C" fn L3_midside_stereo(mut left: *mut libc::c_float, mut n: 
         i += 1
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_intensity_stereo(
+pub unsafe fn L3_intensity_stereo(
     mut left: *mut libc::c_float,
     mut ist_pos: *mut uint8_t,
     mut gr: *const L3_gr_info_t,
@@ -2155,8 +2128,7 @@ pub unsafe extern "C" fn L3_intensity_stereo(
         (*gr.offset(1isize)).scalefac_compress as libc::c_int & 1i32,
     );
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_stereo_process(
+pub unsafe fn L3_stereo_process(
     mut left: *mut libc::c_float,
     mut ist_pos: *const uint8_t,
     mut sfb: *const uint8_t,
@@ -2224,8 +2196,7 @@ pub unsafe extern "C" fn L3_stereo_process(
         i = i.wrapping_add(1)
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_intensity_stereo_band(
+pub unsafe fn L3_intensity_stereo_band(
     mut left: *mut libc::c_float,
     mut n: libc::c_int,
     mut kl: libc::c_float,
@@ -2239,8 +2210,7 @@ pub unsafe extern "C" fn L3_intensity_stereo_band(
         i += 1
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_ldexp_q2(
+pub unsafe fn L3_ldexp_q2(
     mut y: libc::c_float,
     mut exp_q2: libc::c_int,
 ) -> libc::c_float {
@@ -2265,8 +2235,7 @@ pub unsafe extern "C" fn L3_ldexp_q2(
     }
     return y;
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_stereo_top_band(
+pub unsafe fn L3_stereo_top_band(
     mut right: *const libc::c_float,
     mut sfb: *const uint8_t,
     mut nbands: libc::c_int,
@@ -2296,8 +2265,7 @@ pub unsafe extern "C" fn L3_stereo_top_band(
         i += 1
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_huffman(
+pub unsafe fn L3_huffman(
     mut dst: *mut libc::c_float,
     mut bs: *mut bs_t,
     mut gr_info: *const L3_gr_info_t,
@@ -4931,8 +4899,7 @@ static mut g_pow43: [libc::c_float; 145] = [
     638.3687744140625f32,
     645.07958984375f32,
 ];
-#[no_mangle]
-pub unsafe extern "C" fn L3_pow_43(mut x: libc::c_int) -> libc::c_float {
+pub unsafe fn L3_pow_43(mut x: libc::c_int) -> libc::c_float {
     let mut frac: libc::c_float = 0.;
     let mut sign: libc::c_int = 0;
     let mut mult: libc::c_int = 256i32;
@@ -4952,8 +4919,7 @@ pub unsafe extern "C" fn L3_pow_43(mut x: libc::c_int) -> libc::c_float {
             * mult as libc::c_float;
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_decode_scalefactors(
+pub unsafe fn L3_decode_scalefactors(
     mut hdr: *const uint8_t,
     mut ist_pos: *mut uint8_t,
     mut bs: *mut bs_t,
@@ -5205,8 +5171,7 @@ pub unsafe extern "C" fn L3_decode_scalefactors(
         i += 1
     }
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_read_scalefactors(
+pub unsafe fn L3_read_scalefactors(
     mut scf: *mut uint8_t,
     mut ist_pos: *mut uint8_t,
     mut scf_size: *const uint8_t,
@@ -5257,8 +5222,7 @@ pub unsafe extern "C" fn L3_read_scalefactors(
     *scf.offset(0isize) = *fresh36;
 }
 /* MINIMP3_ONLY_MP3 */
-#[no_mangle]
-pub unsafe extern "C" fn L3_read_side_info(
+pub unsafe fn L3_read_side_info(
     mut bs: *mut bs_t,
     mut gr: *mut L3_gr_info_t,
     mut hdr: *const uint8_t,
@@ -6249,8 +6213,7 @@ pub unsafe extern "C" fn L3_read_side_info(
         return main_data_begin;
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn L3_restore_reservoir(
+pub unsafe fn L3_restore_reservoir(
     mut h: *mut mp3dec_t,
     mut bs: *mut bs_t,
     mut s: *mut mp3dec_scratch_t,
@@ -6289,8 +6252,7 @@ pub unsafe extern "C" fn L3_restore_reservoir(
     );
     return ((*h).reserv >= main_data_begin) as libc::c_int;
 }
-#[no_mangle]
-pub unsafe extern "C" fn bs_init(
+pub unsafe fn bs_init(
     mut bs: *mut bs_t,
     mut data: *const uint8_t,
     mut bytes: libc::c_int,
@@ -6299,8 +6261,7 @@ pub unsafe extern "C" fn bs_init(
     (*bs).pos = 0i32;
     (*bs).limit = bytes * 8i32;
 }
-#[no_mangle]
-pub unsafe extern "C" fn hdr_sample_rate_hz(mut h: *const uint8_t) -> libc::c_uint {
+pub unsafe fn hdr_sample_rate_hz(mut h: *const uint8_t) -> libc::c_uint {
     static mut g_hz: [libc::c_uint; 3] = [
         44100i32 as libc::c_uint,
         48000i32 as libc::c_uint,
@@ -6310,8 +6271,7 @@ pub unsafe extern "C" fn hdr_sample_rate_hz(mut h: *const uint8_t) -> libc::c_ui
         >> (0 == *h.offset(1isize) as libc::c_int & 0x8i32) as libc::c_int
         >> (0 == *h.offset(1isize) as libc::c_int & 0x10i32) as libc::c_int;
 }
-#[no_mangle]
-pub unsafe extern "C" fn mp3d_find_frame(
+pub unsafe fn mp3d_find_frame(
     mut mp3: *const uint8_t,
     mut mp3_bytes: libc::c_int,
     mut free_format_bytes: *mut libc::c_int,
@@ -6356,8 +6316,7 @@ pub unsafe extern "C" fn mp3d_find_frame(
     *ptr_frame_bytes = 0i32;
     return i;
 }
-#[no_mangle]
-pub unsafe extern "C" fn hdr_padding(mut h: *const uint8_t) -> libc::c_int {
+pub unsafe fn hdr_padding(mut h: *const uint8_t) -> libc::c_int {
     return if 0 != *h.offset(2isize) as libc::c_int & 0x2i32 {
         if *h.offset(1isize) as libc::c_int & 6i32 == 6i32 {
             4i32
@@ -6368,8 +6327,7 @@ pub unsafe extern "C" fn hdr_padding(mut h: *const uint8_t) -> libc::c_int {
         0i32
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn hdr_frame_bytes(
+pub unsafe fn hdr_frame_bytes(
     mut h: *const uint8_t,
     mut free_format_size: libc::c_int,
 ) -> libc::c_int {
@@ -6387,8 +6345,7 @@ pub unsafe extern "C" fn hdr_frame_bytes(
         free_format_size
     };
 }
-#[no_mangle]
-pub unsafe extern "C" fn mp3d_match_frame(
+pub unsafe fn mp3d_match_frame(
     mut hdr: *const uint8_t,
     mut mp3_bytes: libc::c_int,
     mut frame_bytes: libc::c_int,
@@ -6410,8 +6367,7 @@ pub unsafe extern "C" fn mp3d_match_frame(
     }
     return 1i32;
 }
-#[no_mangle]
-pub unsafe extern "C" fn hdr_compare(
+pub unsafe fn hdr_compare(
     mut h1: *const uint8_t,
     mut h2: *const uint8_t,
 ) -> libc::c_int {
@@ -6423,8 +6379,7 @@ pub unsafe extern "C" fn hdr_compare(
             ^ (*h2.offset(2isize) as libc::c_int & 0xf0i32 == 0i32) as libc::c_int)
         as libc::c_int;
 }
-#[no_mangle]
-pub unsafe extern "C" fn hdr_valid(mut h: *const uint8_t) -> libc::c_int {
+pub unsafe fn hdr_valid(mut h: *const uint8_t) -> libc::c_int {
     return (*h.offset(0isize) as libc::c_int == 0xffi32
         && (*h.offset(1isize) as libc::c_int & 0xf0i32 == 0xf0i32
             || *h.offset(1isize) as libc::c_int & 0xfei32 == 0xe2i32)
