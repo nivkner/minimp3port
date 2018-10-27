@@ -2,7 +2,7 @@ image: alpine:latest
 
 before_script:
   - apk update
-  - apk add git cargo
+  - apk add cargo
 
 test1:
   stage: test
