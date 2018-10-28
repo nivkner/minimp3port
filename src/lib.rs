@@ -8,6 +8,7 @@ extern crate libc;
 #[cfg(test)]
 extern crate std;
 
+mod decoder;
 mod ffi;
 mod header;
 
@@ -53,64 +54,6 @@ const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 const SHORT_BLOCK_TYPE: u8 = 2;
-
-fn find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
-    let valid_frames = mp3
-        .windows(HDR_SIZE as _)
-        .enumerate()
-        .filter(|(_, hdr)| header::is_valid(hdr))
-        .map(|(pos, _)| pos);
-    for pos in valid_frames {
-        let mp3_view = &mp3[pos..];
-        let mut frame_bytes = header::frame_bytes(mp3_view, *free_format_bytes);
-        let mut frame_and_padding = frame_bytes + header::padding(mp3_view);
-
-        let mut k = HDR_SIZE;
-        while frame_bytes == 0
-            && k < MAX_FREE_FORMAT_FRAME_SIZE
-            && pos as i32 + 2 * k < mp3.len() as i32 - HDR_SIZE
-        {
-            if header::compare(mp3_view, &mp3_view[(k as _)..]) {
-                let fb = k - header::padding(mp3_view);
-                let nextfb = fb + header::padding(&mp3_view[(k as _)..]);
-                if pos as i32 + k + nextfb + HDR_SIZE < mp3.len() as i32
-                    && header::compare(mp3_view, &mp3_view[((k + nextfb) as _)..])
-                {
-                    frame_and_padding = k;
-                    frame_bytes = fb;
-                    *free_format_bytes = fb;
-                }
-            }
-            k += 1;
-        }
-
-        if (frame_bytes != 0
-            && pos as i32 + frame_and_padding <= mp3.len() as i32
-            && mp3d_match_frame(mp3_view, frame_bytes))
-            || (pos == 0 && frame_and_padding == mp3.len() as i32)
-        {
-            *ptr_frame_bytes = frame_and_padding;
-            return pos as i32;
-        }
-        *free_format_bytes = 0;
-    }
-    *ptr_frame_bytes = 0;
-    // match c version behavior, returns 0 when len < 4
-    mp3.len().saturating_sub(HDR_SIZE as _) as i32
-}
-
-fn mp3d_match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
-    let mut i = 0;
-    for nmatch in 0..MAX_FRAME_SYNC_MATCHES {
-        i += (header::frame_bytes(&hdr[i..], frame_bytes) + header::padding(&hdr[i..])) as usize;
-        if i + HDR_SIZE as usize > hdr.len() {
-            return nmatch > 0;
-        } else if !header::compare(hdr, &hdr[i..]) {
-            return false;
-        }
-    }
-    true
-}
 
 fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -> i32 {
     #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -297,7 +240,7 @@ fn decode_frame(
     let mut i = 0;
     if frame_size == 0 {
         unsafe { ptr::write_bytes(decoder, 0, 1) }
-        i = find_frame(mp3, &mut decoder.free_format_bytes, &mut frame_size);
+        i = decoder::find_frame(mp3, &mut decoder.free_format_bytes, &mut frame_size);
         if frame_size == 0 || i + frame_size > mp3.len() as _ {
             info.frame_bytes = i;
             return 0;
@@ -476,28 +419,6 @@ mod tests {
         }
     }
 
-    quickcheck! {
-        fn test_find_frame(mp3: Vec<u8>, free_format_bytes: i32, ptr_frame_bytes: i32) -> bool {
-            let mut native_ffb = free_format_bytes;
-            let mut native_pfb = ptr_frame_bytes;
-            let mut ffi_ffb = free_format_bytes;
-            let mut ffi_pfb = ptr_frame_bytes;
-
-            let native_res = find_frame(&mp3, &mut native_ffb, &mut native_pfb);
-            let ffi_res = unsafe {
-                ffi::mp3d_find_frame(
-                    mp3.as_ptr(),
-                    mp3.len() as _,
-                    &mut ffi_ffb,
-                    &mut ffi_pfb
-                    )
-                };
-            native_res == ffi_res &&
-                native_ffb == ffi_ffb &&
-                native_pfb == ffi_pfb
-        }
-    }
-
     impl PartialEq for ffi::bs_t {
         fn eq(&self, other: &Self) -> bool {
             let self_slice = unsafe { slice::from_raw_parts(self.buf, (self.limit / 8) as _) };
@@ -533,15 +454,6 @@ mod tests {
         assert_eq!(this.scalefac_scale, other.scalefac_scale, "scalefac_scale");
         assert_eq!(this.count1_table, other.count1_table, "count1_table");
         assert_eq!(this.scfsi, other.scfsi, "scfsi");
-    }
-
-    quickcheck! {
-        fn test_mp3d_match_frame(hdr: header::ValidHeader, data: Vec<u8>, frame_bytes: u32) -> bool {
-            let mp3: Vec<u8> = hdr.0.iter().chain(data.iter()).map(|n| *n).collect();
-            mp3d_match_frame(&mp3, frame_bytes as _) == unsafe {
-                ffi::mp3d_match_frame(mp3.as_ptr(), mp3.len() as _, frame_bytes as _) != 0
-            }
-        }
     }
 
     quickcheck! {
