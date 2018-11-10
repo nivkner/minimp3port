@@ -11,11 +11,13 @@ extern crate std;
 mod decoder;
 mod ffi;
 mod header;
+mod bits;
 
 use core::mem;
 use core::ptr;
 use core::slice;
 
+use bits::Bits;
 pub use ffi::{
     hdr_bitrate_kbps, hdr_sample_rate_hz, mp3d_find_frame, mp3d_sample_t, mp3dec_frame_info_t,
     mp3dec_init, mp3dec_t,
@@ -55,7 +57,7 @@ const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 const SHORT_BLOCK_TYPE: u8 = 2;
 
-fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -> i32 {
+fn l3_read_side_info(bs: &mut Bits, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -> i32 {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     static G_SCF_LONG: [[u8;23]; 8] = [
         [ 6,6,6,6,6,6,8,10,12,14,16,20,24,28,32,38,46,52,60,68,58,54,0 ],
@@ -100,11 +102,11 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
 
     let main_data_begin = if header::test_mpeg1(hdr) {
         gr_count *= 2;
-        let data = get_bits(bs, 9);
-        scfsi = get_bits(bs, 7 + gr_count as u32);
+        let data = bs.get_bits(9);
+        scfsi = bs.get_bits(7 + gr_count as u32);
         data
     } else {
-        get_bits(bs, 8 + gr_count as u32) >> gr_count
+        bs.get_bits(8 + gr_count as u32) >> gr_count
     };
 
     let mut part_23_sum = 0;
@@ -116,26 +118,26 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
         if header::is_mono(hdr) {
             scfsi <<= 4;
         }
-        gr.part_23_length = get_bits(bs, 12) as _;
+        gr.part_23_length = bs.get_bits(12) as _;
         part_23_sum += gr.part_23_length as i32;
-        gr.big_values = get_bits(bs, 9) as _;
+        gr.big_values = bs.get_bits(9) as _;
         if gr.big_values > 288 {
             return -1;
         }
 
-        gr.global_gain = get_bits(bs, 8) as _;
-        gr.scalefac_compress = get_bits(bs, if header::test_mpeg1(hdr) { 4 } else { 9 }) as _;
+        gr.global_gain = bs.get_bits(8) as _;
+        gr.scalefac_compress = bs.get_bits(if header::test_mpeg1(hdr) { 4 } else { 9 }) as _;
         gr.sfbtab = G_SCF_LONG[sr_idx as usize].as_ptr();
         gr.n_long_sfb = 22;
         gr.n_short_sfb = 0;
 
-        if get_bits(bs, 1) != 0 {
-            gr.block_type = get_bits(bs, 2) as _;
+        if bs.get_bits(1) != 0 {
+            gr.block_type = bs.get_bits(2) as _;
             if gr.block_type == 0 {
                 return -1;
             }
 
-            gr.mixed_block_flag = get_bits(bs, 1) as _;
+            gr.mixed_block_flag = bs.get_bits(1) as _;
             gr.region_count[0] = 7;
             gr.region_count[1] = 255;
             if gr.block_type == SHORT_BLOCK_TYPE {
@@ -153,19 +155,19 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
                 }
             }
 
-            tables = get_bits(bs, 10) as _;
+            tables = bs.get_bits(10) as _;
             tables <<= 5;
 
             for i in 0..3 {
-                gr.subblock_gain[i] = get_bits(bs, 3) as _
+                gr.subblock_gain[i] = bs.get_bits(3) as _
             }
         } else {
             gr.block_type = 0;
             gr.mixed_block_flag = 0;
-            tables = get_bits(bs, 15) as _;
+            tables = bs.get_bits(15) as _;
 
-            gr.region_count[0] = get_bits(bs, 4) as _;
-            gr.region_count[1] = get_bits(bs, 3) as _;
+            gr.region_count[0] = bs.get_bits(4) as _;
+            gr.region_count[1] = bs.get_bits(3) as _;
             gr.region_count[2] = 255;
         }
 
@@ -173,51 +175,22 @@ fn l3_read_side_info(bs: &mut ffi::bs_t, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8
         gr.table_select[1] = ((tables >> 5) & 31) as _;
         gr.table_select[2] = (tables & 31) as _;
         gr.preflag = if header::test_mpeg1(hdr) {
-            get_bits(bs, 1) as _
+            bs.get_bits(1) as _
         } else {
             (gr.scalefac_compress >= 500) as _
         };
 
-        gr.scalefac_scale = get_bits(bs, 1) as _;
-        gr.count1_table = get_bits(bs, 1) as _;
+        gr.scalefac_scale = bs.get_bits(1) as _;
+        gr.count1_table = bs.get_bits(1) as _;
         gr.scfsi = ((scfsi >> 12) & 15) as _;
         scfsi <<= 4;
     }
 
-    if part_23_sum + bs.pos > bs.limit + (main_data_begin as i32) * 8 {
+    if part_23_sum + bs.position as i32 > bs.limit() as i32 + (main_data_begin as i32) * 8 {
         -1
     } else {
         main_data_begin as _
     }
-}
-
-fn get_bits(bs: &mut ffi::bs_t, amount: u32) -> u32 {
-    let s = bs.pos & 7;
-    let mut idx = bs.pos as usize >> 3;
-
-    bs.pos += amount as i32;
-    if bs.pos > bs.limit {
-        return 0;
-    }
-
-    let bs_slice = unsafe { slice::from_raw_parts(bs.buf, bs.limit as usize / 8) };
-
-    let mut next: u32 = bs_slice[idx] as u32 & (255 >> s);
-    idx += 1;
-    let mut shl: i32 = amount as i32 + s;
-
-    let mut cache: u32 = 0;
-    loop {
-        shl -= 8;
-        if shl <= 0 {
-            break;
-        }
-        cache |= next << shl;
-        next = bs_slice[idx] as u32;
-        idx += 1;
-    }
-
-    return (cache | (next >> -shl)) as _;
 }
 
 fn decode_frame(
@@ -262,26 +235,24 @@ fn decode_frame(
     let pcm_view = pcm.unwrap();
     let mut pcm_pos = 0;
 
-    let mut bs_frame = ffi::bs_t {
-        buf: hdr[(HDR_SIZE as _)..].as_ptr(),
-        pos: 0,
-        limit: (frame_size - HDR_SIZE) * 8,
-    };
+    let mut bs_frame = Bits::new(&hdr[(HDR_SIZE as _)..(frame_size as _)]);
     if header::is_crc(hdr) {
-        bs_frame.pos += 16;
+        bs_frame.position += 16;
     }
 
     let mut scratch: ffi::mp3dec_scratch_t = unsafe { mem::zeroed() };
     let mut success = 1;
     if info.layer == 3 {
         let main_data_begin = l3_read_side_info(&mut bs_frame, &mut scratch.gr_info, hdr);
-        if main_data_begin < 0 || bs_frame.pos > bs_frame.limit {
+        if main_data_begin < 0 || bs_frame.position > bs_frame.limit() {
             decoder_init(decoder);
             return 0;
         }
+        let mut bs_copy = unsafe { bs_frame.bs_copy() };
         success = unsafe {
-            ffi::L3_restore_reservoir(decoder, &mut bs_frame, &mut scratch, main_data_begin)
+            ffi::L3_restore_reservoir(decoder, &mut bs_copy, &mut scratch, main_data_begin)
         };
+        bs_frame.position = bs_copy.pos as _;
         if success != 0 {
             let count = if header::test_mpeg1(hdr) { 2 } else { 1 };
             for igr in 0..count {
@@ -307,9 +278,10 @@ fn decode_frame(
         }
         unsafe { ffi::L3_save_reservoir(decoder, &mut scratch) };
     } else {
+        let mut bs_copy = unsafe { bs_frame.bs_copy() };
         let mut sci = unsafe {
             let mut sci: ffi::L12_scale_info = mem::zeroed();
-            ffi::L12_read_scale_info(hdr.as_ptr(), &mut bs_frame, &mut sci);
+            ffi::L12_read_scale_info(hdr.as_ptr(), &mut bs_copy, &mut sci);
             ptr::write_bytes(&mut scratch.grbuf, 0, 1);
             sci
         };
@@ -318,7 +290,7 @@ fn decode_frame(
             unsafe {
                 i += ffi::L12_dequantize_granule(
                     scratch.grbuf[0][(i as _)..].as_mut_ptr(),
-                    &mut bs_frame,
+                    &mut bs_copy,
                     &mut sci,
                     info.layer | 1,
                 );
@@ -343,11 +315,12 @@ fn decode_frame(
                 }
                 pcm_pos += 384 * info.channels as usize;
             }
-            if bs_frame.pos > bs_frame.limit {
+            if bs_copy.pos > bs_copy.limit {
                 decoder_init(decoder);
                 return 0;
             }
         }
+        bs_frame.position = bs_copy.pos as _;
     }
     success * header::frame_samples(&decoder.header)
 }
@@ -355,8 +328,8 @@ fn decode_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
     use core::fmt;
+    use quickcheck::{Arbitrary, Gen};
     use std::vec::Vec;
 
     impl Arbitrary for ffi::mp3dec_t {
@@ -369,13 +342,9 @@ mod tests {
             mp3dec.qmf_state.copy_from_slice(&qmf_state);
             mp3dec.reserv = libc::c_int::arbitrary(g);
             mp3dec.free_format_bytes = libc::c_int::arbitrary(g);
-            let header: Vec<_> = (0..4)
-                .map(|_| libc::c_uchar::arbitrary(g))
-                .collect();
+            let header: Vec<_> = (0..4).map(|_| libc::c_uchar::arbitrary(g)).collect();
             mp3dec.header.copy_from_slice(&header);
-            let reserv_buf: Vec<_> = (0..511)
-                .map(|_| libc::c_uchar::arbitrary(g))
-                .collect();
+            let reserv_buf: Vec<_> = (0..511).map(|_| libc::c_uchar::arbitrary(g)).collect();
             mp3dec.reserv_buf.copy_from_slice(&reserv_buf);
             mp3dec
         }
@@ -457,29 +426,9 @@ mod tests {
     }
 
     quickcheck! {
-        fn test_get_bits(data: Vec<u8>, position: u32, amount: u32) -> bool {
-            let amount = amount % 32; // asking for more than 32
-            // will cause undefined behavior in the c version
-            let mut native_bs = ffi::bs_t {
-                buf: data.as_ptr(),
-                pos: position as i32,
-                limit: data.len() as i32 * 8,
-            };
-            let mut ffi_bs = native_bs;
-            get_bits(&mut native_bs, amount) == unsafe {
-                ffi::get_bits(&mut ffi_bs, amount as _)
-            }
-        }
-    }
-
-    quickcheck! {
         fn test_l3_read_side_info(data: Vec<u8>, hdr: header::ValidHeader) -> bool {
-            let mut native_bs = ffi::bs_t {
-                buf: data.as_ptr(),
-                pos: 0,
-                limit: (data.len() * 8) as _,
-            };
-            let mut ffi_bs = native_bs;
+            let mut native_bs = Bits::new(&data);
+            let mut ffi_bs = unsafe { native_bs.bs_copy() };
             let mut native_gr_info: [ffi::L3_gr_info_t; 4] = unsafe { mem::zeroed() };
             let mut ffi_gr_info = native_gr_info;
             let native_res = l3_read_side_info(&mut native_bs, &mut native_gr_info, &hdr.0);
@@ -487,7 +436,7 @@ mod tests {
                 ffi::L3_read_side_info(&mut ffi_bs, ffi_gr_info.as_mut_ptr(), hdr.0.as_ptr())
             };
             assert!(native_res == ffi_res);
-            assert!(native_bs == ffi_bs);
+            assert!(native_bs.position as i32 == ffi_bs.pos);
             native_gr_info.iter().enumerate().for_each(|(i, native)| compare_l3_gr_info(native, &ffi_gr_info[i]));
             true
         }
