@@ -14,6 +14,10 @@ fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
 }
 
 extern crate libc;
+#[cfg(not(target_os = "android"))]
+use libc::__errno_location;
+#[cfg(target_os = "android")]
+use libc::__errno as __errno_location;
 extern "C" {
     /* __cplusplus */
     #[no_mangle]
@@ -49,8 +53,6 @@ extern "C" {
         __fd: libc::c_int,
         __offset: __off_t,
     ) -> *mut libc::c_void;
-    #[no_mangle]
-    fn __errno_location() -> *mut libc::c_int;
     #[no_mangle]
     fn fstat(__fd: libc::c_int, __buf: *mut stat) -> libc::c_int;
     #[no_mangle]
