@@ -1,12 +1,10 @@
-image: alpine:latest
-
-before_script:
-  - apk update
-  - apk add cargo
+image: rustlang/rust:nightly-slim
 
 test1:
   stage: test
   script:
+    - export RUSTFLAGS="-Zsanitizer=address"
+    - export ASAN_OPTIONS=detect_odr_violation=0
     - cargo test
     - cargo build
     - mv target/debug/minimp3 minimp3

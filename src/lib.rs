@@ -271,7 +271,7 @@ fn decode_frame(
         bs_frame.pos += 16;
     }
 
-    let mut scratch: ffi::mp3dec_scratch_t = unsafe { mem::uninitialized() };
+    let mut scratch: ffi::mp3dec_scratch_t = unsafe { mem::zeroed() };
     let mut success = 1;
     if info.layer == 3 {
         let main_data_begin = l3_read_side_info(&mut bs_frame, &mut scratch.gr_info, hdr);
@@ -308,7 +308,7 @@ fn decode_frame(
         unsafe { ffi::L3_save_reservoir(decoder, &mut scratch) };
     } else {
         let mut sci = unsafe {
-            let mut sci: ffi::L12_scale_info = mem::uninitialized();
+            let mut sci: ffi::L12_scale_info = mem::zeroed();
             ffi::L12_read_scale_info(hdr.as_ptr(), &mut bs_frame, &mut sci);
             ptr::write_bytes(&mut scratch.grbuf, 0, 1);
             sci
@@ -361,7 +361,7 @@ mod tests {
 
     impl Arbitrary for ffi::mp3dec_t {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            let mut mp3dec: ffi::mp3dec_t = unsafe { mem::uninitialized() };
+            let mut mp3dec: ffi::mp3dec_t = unsafe { mem::zeroed() };
             let mdct_overlap: Vec<_> = (0..(288 * 2)).map(|_| f32::arbitrary(g)).collect();
             mp3dec.mdct_overlap[0].copy_from_slice(&mdct_overlap[..288]);
             mp3dec.mdct_overlap[1].copy_from_slice(&mdct_overlap[288..]);
@@ -409,13 +409,13 @@ mod tests {
 
     impl Arbitrary for ffi::mp3dec_frame_info_t {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            let mut mp3dec_frame_info: ffi::mp3dec_frame_info_t = unsafe { mem::uninitialized() };
-            mp3dec_frame_info.frame_bytes = libc::c_int::arbitrary(g);
-            mp3dec_frame_info.channels = libc::c_int::arbitrary(g);
-            mp3dec_frame_info.hz = libc::c_int::arbitrary(g);
-            mp3dec_frame_info.layer = libc::c_int::arbitrary(g);
-            mp3dec_frame_info.bitrate_kbps = libc::c_int::arbitrary(g);
-            mp3dec_frame_info
+            ffi::mp3dec_frame_info_t {
+                frame_bytes: libc::c_int::arbitrary(g),
+                channels: libc::c_int::arbitrary(g),
+                hz: libc::c_int::arbitrary(g),
+                layer: libc::c_int::arbitrary(g),
+                bitrate_kbps: libc::c_int::arbitrary(g),
+            }
         }
     }
 
