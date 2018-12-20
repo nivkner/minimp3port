@@ -2,6 +2,75 @@ use bits::Bits;
 use SHORT_BLOCK_TYPE;
 use {ffi, header};
 
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
+pub struct GrInfo {
+    pub sfb_table: Option<SFBTable>,
+    pub part_23_length: u16,
+    pub big_values: u16,
+    pub scalefac_compress: u16,
+    pub global_gain: u8,
+    pub block_type: u8,
+    pub mixed_block: bool,
+    pub table_select: [u8; 3],
+    pub region_count: [u8; 3],
+    pub subblock_gain: [u8; 3],
+    pub preflag: u8,
+    pub scalefac_scale: u8,
+    pub count1_table: u8,
+    pub scfsi: u8,
+}
+
+// contains the table and describes the length
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum SFBTable {
+    // corresponds to n_long_sfb == 22
+    Long(&'static [u8]),
+    // corresponds to n_short_sfb == 39
+    Short(&'static [u8]),
+    // corresponds to n_short_sfb == 30
+    // with the extra number as n_long_sfb
+    Mixed(&'static [u8], u8),
+}
+
+impl GrInfo {
+    pub fn apply_to_ffi(&self, gr: &mut ffi::L3_gr_info_t) {
+        match self.sfb_table {
+            Some(SFBTable::Long(slice)) => {
+                gr.sfbtab = slice.as_ptr();
+                gr.n_long_sfb = 22;
+                gr.n_short_sfb = 0;
+            }
+            Some(SFBTable::Short(slice)) => {
+                gr.sfbtab = slice.as_ptr();
+                gr.n_long_sfb = 0;
+                gr.n_short_sfb = 39;
+            }
+            Some(SFBTable::Mixed(slice, extra)) => {
+                gr.sfbtab = slice.as_ptr();
+                gr.n_long_sfb = extra;
+                gr.n_short_sfb = 30;
+            }
+            None => {
+                gr.n_long_sfb = 0;
+                gr.n_short_sfb = 0;
+            }
+        }
+        gr.mixed_block_flag = self.mixed_block as u8;
+        gr.block_type = self.block_type;
+        gr.part_23_length = self.part_23_length;
+        gr.big_values = self.big_values;
+        gr.scalefac_compress = self.scalefac_compress;
+        gr.global_gain = self.global_gain;
+        gr.table_select = self.table_select;
+        gr.region_count = self.region_count;
+        gr.subblock_gain = self.subblock_gain;
+        gr.preflag = self.preflag;
+        gr.scalefac_scale = self.scalefac_scale;
+        gr.count1_table = self.count1_table;
+        gr.scfsi = self.scfsi;
+    }
+}
+
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static G_SCF_LONG: [[u8;23]; 8] = [
     [ 6,6,6,6,6,6,8,10,12,14,16,20,24,28,32,38,46,52,60,68,58,54,0 ],
@@ -37,7 +106,16 @@ static G_SCF_MIXED: [&'static [u8]; 8] = [
     &[ 4,4,4,4,4,4,6,6,4,4,4,6,6,6,8,8,8,12,12,12,16,16,16,20,20,20,26,26,26,34,34,34,42,42,42,12,12,12,0 ],
 ];
 
-pub fn read_side_info(bs: &mut Bits, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -> i32 {
+pub fn read_side_info(bs: &mut Bits, ffi_gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -> i32 {
+    let mut gr_infos = [GrInfo::default(); 4];
+    let res = read_side_info_inner(bs, &mut gr_infos, hdr);
+    for i in 0..4 {
+        gr_infos[i].apply_to_ffi(&mut ffi_gr[i]);
+    }
+    res
+}
+
+fn read_side_info_inner(bs: &mut Bits, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
     let mut sr_idx = header::get_my_sample_rate(hdr);
     if sr_idx != 0 {
         sr_idx -= 1
@@ -59,7 +137,7 @@ pub fn read_side_info(bs: &mut Bits, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -
     let mut scfsi = scfsi as i32;
 
     for i in 0..gr_count {
-        let gr = &mut gr[i as usize];
+        let gr = &mut gr[i];
         if header::is_mono(hdr) {
             scfsi <<= 4;
         }
@@ -72,9 +150,7 @@ pub fn read_side_info(bs: &mut Bits, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -
 
         gr.global_gain = bs.get_bits(8) as _;
         gr.scalefac_compress = bs.get_bits(if header::test_mpeg1(hdr) { 4 } else { 9 }) as _;
-        gr.sfbtab = G_SCF_LONG[sr_idx as usize].as_ptr();
-        gr.n_long_sfb = 22;
-        gr.n_short_sfb = 0;
+        gr.sfb_table = Some(SFBTable::Long(&G_SCF_LONG[sr_idx as usize]));
 
         if bs.get_bits(1) != 0 {
             gr.block_type = bs.get_bits(2) as _;
@@ -82,21 +158,21 @@ pub fn read_side_info(bs: &mut Bits, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -
                 return -1;
             }
 
-            gr.mixed_block_flag = bs.get_bits(1) as _;
+            gr.mixed_block = bs.get_bits(1) != 0;
             gr.region_count[0] = 7;
             gr.region_count[1] = 255;
-            if gr.block_type == SHORT_BLOCK_TYPE {
+            if gr.block_type == SHORT_BLOCK_TYPE as _ {
                 scfsi &= 0x0F0F;
 
-                if gr.mixed_block_flag == 0 {
+                if !gr.mixed_block {
                     gr.region_count[0] = 8;
-                    gr.sfbtab = G_SCF_SHORT[sr_idx as usize].as_ptr();
-                    gr.n_long_sfb = 0;
-                    gr.n_short_sfb = 39;
+                    gr.sfb_table = Some(SFBTable::Short(&G_SCF_SHORT[sr_idx as usize]));
                 } else {
-                    gr.sfbtab = G_SCF_MIXED[sr_idx as usize].as_ptr();
-                    gr.n_long_sfb = if header::test_mpeg1(hdr) { 8 } else { 6 };
-                    gr.n_short_sfb = 30;
+                    let long_sfb_count = if header::test_mpeg1(hdr) { 8 } else { 6 };
+                    gr.sfb_table = Some(SFBTable::Mixed(
+                        G_SCF_MIXED[sr_idx as usize],
+                        long_sfb_count,
+                    ));
                 }
             }
 
@@ -107,8 +183,6 @@ pub fn read_side_info(bs: &mut Bits, gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -
                 gr.subblock_gain[i] = bs.get_bits(3) as _
             }
         } else {
-            gr.block_type = 0;
-            gr.mixed_block_flag = 0;
             tables = bs.get_bits(15) as _;
 
             gr.region_count[0] = bs.get_bits(4) as _;
@@ -177,7 +251,11 @@ mod tests {
         fn test_read_side_info(data: Vec<u8>, hdr: header::ValidHeader) -> bool {
             let mut native_bs = Bits::new(&data);
             let mut ffi_bs = unsafe { native_bs.bs_copy() };
+            let gr_info = GrInfo::default();
             let mut native_gr_info: [ffi::L3_gr_info_t; 4] = unsafe { mem::zeroed() };
+            for mut info in native_gr_info.iter_mut() {
+                gr_info.apply_to_ffi(&mut info);
+            }
             let mut ffi_gr_info = native_gr_info;
             let native_res = read_side_info(&mut native_bs, &mut native_gr_info, &hdr.0);
             let ffi_res = unsafe {
