@@ -107,20 +107,21 @@ fn decode_frame(
 
     let mut scratch: ffi::mp3dec_scratch_t = unsafe { mem::zeroed() };
     let mut native_scratch = decoder::Scratch::default();
-    let mut success = 1;
+    let mut success = true;
     if info.layer == 3 {
         let main_data_begin = l3::read_side_info(&mut bs_frame, &mut native_scratch.gr_info, hdr);
-        native_scratch.convert_to_ffi(&mut scratch);
         if main_data_begin < 0 || bs_frame.position > bs_frame.limit() {
             decoder_init(decoder);
             return 0;
         }
-        let mut bs_copy = unsafe { bs_frame.bs_copy() };
-        success = unsafe {
-            ffi::L3_restore_reservoir(decoder, &mut bs_copy, &mut scratch, main_data_begin)
-        };
-        bs_frame.position = bs_copy.pos as _;
-        if success != 0 {
+        success = l3::restore_reservoir(
+            decoder,
+            &mut bs_frame,
+            &mut native_scratch.bits,
+            main_data_begin as _,
+        );
+        native_scratch.convert_to_ffi(&mut scratch);
+        if success {
             let count = if header::test_mpeg1(hdr) { 2 } else { 1 };
             for igr in 0..count {
                 unsafe {
@@ -189,7 +190,7 @@ fn decode_frame(
         }
         bs_frame.position = bs_copy.pos as _;
     }
-    success * header::frame_samples(&decoder.header)
+    success as i32 * header::frame_samples(&decoder.header)
 }
 
 #[cfg(test)]

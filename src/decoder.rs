@@ -23,11 +23,7 @@ pub struct BitsProxy {
 }
 
 impl BitsProxy {
-    fn set_limit(&mut self, limit: u32) {
-        self.len = limit as usize / 8
-    }
-
-    fn with_bits<F, T>(&mut self, fun: F) -> T
+    pub fn with_bits<F, T>(&mut self, fun: F) -> T
     where F: FnOnce(&mut Bits) -> T {
         let mut bits = Bits::new_with_pos(&self.maindata[..self.len], self.position);
         let res = fun(&mut bits);
@@ -140,7 +136,30 @@ pub fn match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core::fmt;
+    use quickcheck::{Arbitrary, Gen};
     use std::vec::Vec;
+
+    impl Arbitrary for BitsProxy {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let mut bits = BitsProxy::default();
+            let maindata: Vec<_> = (0..2815).map(|_| u8::arbitrary(g)).collect();
+            bits.position = (usize::arbitrary(g) % 2815) * 8;
+            bits.len = usize::arbitrary(g) % 2815;
+            bits.maindata.copy_from_slice(&maindata);
+            bits
+        }
+    }
+
+    impl fmt::Debug for BitsProxy {
+        fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+            fmt.debug_struct("BitsProxy")
+                .field("position", &self.position)
+                .field("len", &self.len)
+                .field("maindata", &format_args!("{:?}", &self.maindata[..10]))
+                .finish()
+        }
+    }
 
     quickcheck! {
         fn test_find_frame(mp3: Vec<u8>, free_format_bytes: i32, ptr_frame_bytes: i32) -> bool {

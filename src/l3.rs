@@ -1,6 +1,8 @@
+use core::cmp;
+
 use bits::Bits;
 use SHORT_BLOCK_TYPE;
-use {ffi, header};
+use {decoder, ffi, header};
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct GrInfo {
@@ -203,6 +205,25 @@ pub fn read_side_info(bs: &mut Bits, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
     }
 }
 
+pub fn restore_reservoir(
+    decoder: &mut ffi::mp3dec_t,
+    bs: &mut Bits,
+    scratch_bits: &mut decoder::BitsProxy,
+    main_data_begin: u32,
+) -> bool {
+    let frame_bytes = (bs.limit() - bs.position) / 8;
+    let bytes_have = cmp::min(decoder.reserv, main_data_begin as i32) as usize;
+    let reserve_start = cmp::max(0, decoder.reserv - main_data_begin as i32) as usize;
+    scratch_bits.maindata[..bytes_have]
+        .copy_from_slice(&decoder.reserv_buf[reserve_start..(reserve_start + bytes_have)]);
+    let bs_bytes = bs.position / 8;
+    scratch_bits.maindata[(bytes_have)..(bytes_have + frame_bytes)]
+        .copy_from_slice(&bs.data[bs_bytes..(bs_bytes + frame_bytes)]);
+    scratch_bits.len = bytes_have + frame_bytes;
+    scratch_bits.position = 0;
+    return decoder.reserv >= main_data_begin as i32;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -260,6 +281,34 @@ mod tests {
                 native.apply_to_ffi(&mut info);
                 compare_gr_info(&info, &ffi_gr_info[i]);
             });
+            true
+        }
+    }
+
+    quickcheck! {
+        fn test_restore_reservoir(decoder: ffi::mp3dec_t, data: Vec<u8>, bits: decoder::BitsProxy, main_data_begin: u32) -> bool {
+            let mut native_bs = Bits::new(&data);
+            let mut ffi_bs = unsafe { native_bs.bs_copy() };
+
+            let mut native_decoder = decoder;
+            // reserv musn't be negetive, causes stack overflow in the c version
+            native_decoder.reserv = native_decoder.reserv.abs();
+            let mut ffi_decoder = native_decoder;
+
+            let mut ffi_scratch = unsafe { mem::zeroed() };
+
+            let mut native_scratch = decoder::Scratch::default();
+            native_scratch.bits = bits;
+            native_scratch.convert_to_ffi(&mut ffi_scratch);
+
+            let ffi_res = unsafe { ffi::L3_restore_reservoir(&mut ffi_decoder, &mut ffi_bs, &mut ffi_scratch, main_data_begin as _) };
+            let native_res = restore_reservoir(&mut native_decoder, &mut native_bs, &mut native_scratch.bits, main_data_begin as _);
+            assert_eq!(ffi_res != 0, native_res);
+            assert_eq!(ffi_scratch.bs.limit, native_scratch.bits.with_bits(|b| b.limit()) as _);
+            assert_eq!(ffi_scratch.bs.pos, native_scratch.bits.position as _);
+            assert_eq!(&ffi_scratch.maindata as &[u8], &native_scratch.bits.maindata as &[u8]);
+
+            assert!(native_bs.position as i32 == ffi_bs.pos);
             true
         }
     }
