@@ -106,16 +106,7 @@ static G_SCF_MIXED: [&'static [u8]; 8] = [
     &[ 4,4,4,4,4,4,6,6,4,4,4,6,6,6,8,8,8,12,12,12,16,16,16,20,20,20,26,26,26,34,34,34,42,42,42,12,12,12,0 ],
 ];
 
-pub fn read_side_info(bs: &mut Bits, ffi_gr: &mut [ffi::L3_gr_info_t], hdr: &[u8]) -> i32 {
-    let mut gr_infos = [GrInfo::default(); 4];
-    let res = read_side_info_inner(bs, &mut gr_infos, hdr);
-    for i in 0..4 {
-        gr_infos[i].apply_to_ffi(&mut ffi_gr[i]);
-    }
-    res
-}
-
-fn read_side_info_inner(bs: &mut Bits, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
+pub fn read_side_info(bs: &mut Bits, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
     let mut sr_idx = header::get_my_sample_rate(hdr);
     if sr_idx != 0 {
         sr_idx -= 1
@@ -251,19 +242,24 @@ mod tests {
         fn test_read_side_info(data: Vec<u8>, hdr: header::ValidHeader) -> bool {
             let mut native_bs = Bits::new(&data);
             let mut ffi_bs = unsafe { native_bs.bs_copy() };
-            let gr_info = GrInfo::default();
-            let mut native_gr_info: [ffi::L3_gr_info_t; 4] = unsafe { mem::zeroed() };
-            for mut info in native_gr_info.iter_mut() {
-                gr_info.apply_to_ffi(&mut info);
+
+            let mut native_gr_info = [GrInfo::default(); 4];
+            let mut ffi_gr_info: [ffi::L3_gr_info_t; 4] = unsafe { mem::zeroed() };
+            for i in 0..4 {
+                native_gr_info[i].apply_to_ffi(&mut ffi_gr_info[i]);
             }
-            let mut ffi_gr_info = native_gr_info;
+
             let native_res = read_side_info(&mut native_bs, &mut native_gr_info, &hdr.0);
             let ffi_res = unsafe {
                 ffi::L3_read_side_info(&mut ffi_bs, ffi_gr_info.as_mut_ptr(), hdr.0.as_ptr())
             };
             assert!(native_res == ffi_res);
             assert!(native_bs.position as i32 == ffi_bs.pos);
-            native_gr_info.iter().enumerate().for_each(|(i, native)| compare_gr_info(native, &ffi_gr_info[i]));
+            native_gr_info.iter().enumerate().for_each(|(i, native)| {
+                let mut info = unsafe { mem::zeroed() };
+                native.apply_to_ffi(&mut info);
+                compare_gr_info(&info, &ffi_gr_info[i]);
+            });
             true
         }
     }

@@ -106,9 +106,11 @@ fn decode_frame(
     }
 
     let mut scratch: ffi::mp3dec_scratch_t = unsafe { mem::zeroed() };
+    let mut native_scratch = decoder::Scratch::default();
     let mut success = 1;
     if info.layer == 3 {
-        let main_data_begin = l3::read_side_info(&mut bs_frame, &mut scratch.gr_info, hdr);
+        let main_data_begin = l3::read_side_info(&mut bs_frame, &mut native_scratch.gr_info, hdr);
+        native_scratch.convert_to_ffi(&mut scratch);
         if main_data_begin < 0 || bs_frame.position > bs_frame.limit() {
             decoder_init(decoder);
             return 0;
