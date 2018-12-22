@@ -1,7 +1,7 @@
+use bits::Bits;
 use ffi;
 use header;
 use l3;
-use bits::Bits;
 use {HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
 #[derive(Copy, Clone)]
@@ -24,7 +24,9 @@ pub struct BitsProxy {
 
 impl BitsProxy {
     pub fn with_bits<F, T>(&mut self, fun: F) -> T
-    where F: FnOnce(&mut Bits) -> T {
+    where
+        F: FnOnce(&mut Bits) -> T,
+    {
         let mut bits = Bits::new_with_pos(&self.maindata[..self.len], self.position);
         let res = fun(&mut bits);
         self.position = bits.position;

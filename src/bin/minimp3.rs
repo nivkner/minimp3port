@@ -14,10 +14,10 @@ fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
 }
 
 extern crate libc;
-#[cfg(not(target_os = "android"))]
-use libc::__errno_location;
 #[cfg(target_os = "android")]
 use libc::__errno as __errno_location;
+#[cfg(not(target_os = "android"))]
+use libc::__errno_location;
 extern "C" {
     /* __cplusplus */
     #[no_mangle]
@@ -169,8 +169,12 @@ pub type MP3D_ITERATE_CB = Option<
     ) -> libc::c_int,
 >;
 pub type MP3D_PROGRESS_CB = Option<
-    unsafe extern "C" fn(_: *mut libc::c_void, _: size_t, _: size_t, _: *mut mp3dec_frame_info_t)
-        -> libc::c_int,
+    unsafe extern "C" fn(
+        _: *mut libc::c_void,
+        _: size_t,
+        _: size_t,
+        _: *mut mp3dec_frame_info_t,
+    ) -> libc::c_int,
 >;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -397,11 +401,13 @@ pub unsafe extern "C" fn mp3dec_load_buf(
 }
 /*MINIMP3_EXT_H*/
 unsafe extern "C" fn mp3dec_skip_id3v2(buf: *const uint8_t, buf_size: size_t) -> size_t {
-    if buf_size > 10i32 as libc::c_ulong && 0 == strncmp(
-        buf as *mut libc::c_char,
-        b"ID3\x00" as *const u8 as *const libc::c_char,
-        3i32 as libc::c_ulong,
-    ) {
+    if buf_size > 10i32 as libc::c_ulong
+        && 0 == strncmp(
+            buf as *mut libc::c_char,
+            b"ID3\x00" as *const u8 as *const libc::c_char,
+            3i32 as libc::c_ulong,
+        )
+    {
         return (((*buf.offset(6isize) as libc::c_int & 0x7fi32) << 21i32
             | (*buf.offset(7isize) as libc::c_int & 0x7fi32) << 14i32
             | (*buf.offset(8isize) as libc::c_int & 0x7fi32) << 7i32
@@ -890,10 +896,12 @@ unsafe fn main_0(argc: libc::c_int, argv: *mut *mut libc::c_char) -> libc::c_int
             b"wb\x00" as *const u8 as *const libc::c_char,
         );
         let ext: *mut libc::c_char = strrchr(output_file_name, '.' as i32);
-        if !ext.is_null() && 0 == strcasecmp(
-            ext.offset(1isize),
-            b"wav\x00" as *const u8 as *const libc::c_char,
-        ) {
+        if !ext.is_null()
+            && 0 == strcasecmp(
+                ext.offset(1isize),
+                b"wav\x00" as *const u8 as *const libc::c_char,
+            )
+        {
             wave_out = 1i32
         }
     }

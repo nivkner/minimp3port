@@ -233,19 +233,19 @@ pub unsafe fn mp3dec_decode_frame(
                     L3_restore_reservoir(dec, bs_frame.as_mut_ptr(), &mut scratch, main_data_begin);
                 if 0 != success {
                     igr = 0i32;
-                    while igr < if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
-                        2i32
-                    } else {
-                        1i32
-                    } {
+                    while igr
+                        < if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
+                            2i32
+                        } else {
+                            1i32
+                        }
+                    {
                         memset(
                             scratch.grbuf[0usize].as_mut_ptr() as *mut libc::c_void,
                             0i32,
-                            ((576i32 * 2i32) as libc::c_ulong).wrapping_mul(::core::mem::size_of::<
-                                libc::c_float,
-                            >(
-                            )
-                                as libc::c_ulong),
+                            ((576i32 * 2i32) as libc::c_ulong).wrapping_mul(
+                                ::core::mem::size_of::<libc::c_float>() as libc::c_ulong,
+                            ),
                         );
                         L3_decode(
                             dec,
@@ -1575,10 +1575,10 @@ pub unsafe fn hdr_bitrate_kbps(mut h: *const uint8_t) -> libc::c_uint {
             ],
         ],
     ];
-    return (2i32 * halfrate
-        [(0 != *h.offset(1isize) as libc::c_int & 0x8i32) as libc::c_int as usize]
-        [((*h.offset(1isize) as libc::c_int >> 1i32 & 3i32) - 1i32) as usize]
-        [(*h.offset(2isize) as libc::c_int >> 4i32) as usize] as libc::c_int)
+    return (2i32
+        * halfrate[(0 != *h.offset(1isize) as libc::c_int & 0x8i32) as libc::c_int as usize]
+            [((*h.offset(1isize) as libc::c_int >> 1i32 & 3i32) - 1i32) as usize]
+            [(*h.offset(2isize) as libc::c_int >> 4i32) as usize] as libc::c_int)
         as libc::c_uint;
 }
 pub unsafe fn L3_save_reservoir(mut h: *mut mp3dec_t, mut s: *mut mp3dec_scratch_t) {
@@ -2174,9 +2174,8 @@ pub unsafe fn L3_stereo_process(
             if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
                 kl = g_pan[(2i32 as libc::c_uint).wrapping_mul(ipos) as usize];
                 kr = g_pan[(2i32 as libc::c_uint)
-                               .wrapping_mul(ipos)
-                               .wrapping_add(1i32 as libc::c_uint)
-                               as usize]
+                    .wrapping_mul(ipos)
+                    .wrapping_add(1i32 as libc::c_uint) as usize]
             } else {
                 kl = 1i32 as libc::c_float;
                 kr = L3_ldexp_q2(
@@ -2210,10 +2209,7 @@ pub unsafe fn L3_intensity_stereo_band(
         i += 1
     }
 }
-pub unsafe fn L3_ldexp_q2(
-    mut y: libc::c_float,
-    mut exp_q2: libc::c_int,
-) -> libc::c_float {
+pub unsafe fn L3_ldexp_q2(mut y: libc::c_float, mut exp_q2: libc::c_int) -> libc::c_float {
     static mut g_expfrac: [libc::c_float; 4] = [
         9.313225746154786e-10f32,
         7.831458259666135e-10f32,
@@ -4626,9 +4622,9 @@ pub unsafe fn L3_huffman(
                                 1i32
                             }) as libc::c_float
                     } else {
-                        *dst = g_pow43[((16i32 + lsb) as libc::c_uint).wrapping_sub(
-                            (16i32 as libc::c_uint).wrapping_mul(bs_cache >> 31i32),
-                        ) as usize]
+                        *dst = g_pow43[((16i32 + lsb) as libc::c_uint)
+                            .wrapping_sub((16i32 as libc::c_uint).wrapping_mul(bs_cache >> 31i32))
+                            as usize]
                             * one
                     }
                     bs_cache <<= if 0 != lsb { 1i32 } else { 0i32 };
@@ -5040,8 +5036,7 @@ pub unsafe fn L3_decode_scalefactors(
     ];
     let mut scf_partition: *const uint8_t =
         g_scf_partitions[((0 != (*gr).n_short_sfb) as libc::c_int
-                             + (0 == (*gr).n_long_sfb) as libc::c_int)
-                             as usize]
+            + (0 == (*gr).n_long_sfb) as libc::c_int) as usize]
             .as_ptr();
     let mut scf_size: [uint8_t; 4] = [0; 4];
     let mut iscf: [uint8_t; 40] = [0; 40];
@@ -5152,15 +5147,13 @@ pub unsafe fn L3_decode_scalefactors(
             i += 1
         }
     }
-    gain_exp = (*gr).global_gain as libc::c_int + -1i32 * 4i32 - 210i32 - if *hdr.offset(3isize)
-        as libc::c_int
-        & 0xe0i32
-        == 0x60i32
-    {
-        2i32
-    } else {
-        0i32
-    };
+    gain_exp = (*gr).global_gain as libc::c_int + -1i32 * 4i32
+        - 210i32
+        - if *hdr.offset(3isize) as libc::c_int & 0xe0i32 == 0x60i32 {
+            2i32
+        } else {
+            0i32
+        };
     gain = L3_ldexp_q2(
         (1i32 << (255i32 + -1i32 * 4i32 - 210i32 + 3i32 & !3i32) / 4i32) as libc::c_float,
         (255i32 + -1i32 * 4i32 - 210i32 + 3i32 & !3i32) - gain_exp,
@@ -6252,11 +6245,7 @@ pub unsafe fn L3_restore_reservoir(
     );
     return ((*h).reserv >= main_data_begin) as libc::c_int;
 }
-pub unsafe fn bs_init(
-    mut bs: *mut bs_t,
-    mut data: *const uint8_t,
-    mut bytes: libc::c_int,
-) {
+pub unsafe fn bs_init(mut bs: *mut bs_t, mut data: *const uint8_t, mut bytes: libc::c_int) {
     (*bs).buf = data;
     (*bs).pos = 0i32;
     (*bs).limit = bytes * 8i32;
@@ -6367,10 +6356,7 @@ pub unsafe fn mp3d_match_frame(
     }
     return 1i32;
 }
-pub unsafe fn hdr_compare(
-    mut h1: *const uint8_t,
-    mut h2: *const uint8_t,
-) -> libc::c_int {
+pub unsafe fn hdr_compare(mut h1: *const uint8_t, mut h2: *const uint8_t) -> libc::c_int {
     return (0 != hdr_valid(h2)
         && (*h1.offset(1isize) as libc::c_int ^ *h2.offset(1isize) as libc::c_int) & 0xfei32
             == 0i32
