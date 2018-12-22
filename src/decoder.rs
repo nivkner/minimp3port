@@ -1,13 +1,11 @@
 use crate::bits::Bits;
 use crate::ffi;
 use crate::header;
-use crate::l3;
 use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
 #[derive(Copy, Clone)]
 pub struct Scratch {
     pub bits: BitsProxy,
-    pub gr_info: [l3::GrInfo; 4],
     pub grbuf: [[f32; 576]; 2],
     pub scf: [f32; 40],
     pub syn: [[f32; 64]; 33],
@@ -48,7 +46,6 @@ impl Default for Scratch {
     fn default() -> Self {
         Scratch {
             bits: BitsProxy::default(),
-            gr_info: [l3::GrInfo::default(); 4],
             grbuf: [[0.0; 576]; 2],
             scf: [0.0; 40],
             syn: [[0.0; 64]; 33],
@@ -61,9 +58,6 @@ impl Scratch {
     // cannot be a From implementation because scratch is self referencial
     pub fn convert_to_ffi(mut self, scratch: &mut ffi::mp3dec_scratch_t) {
         let bs = self.bits.with_bits(|bits| unsafe { bits.bs_copy() });
-        for i in 0..4 {
-            self.gr_info[i].apply_to_ffi(&mut scratch.gr_info[i]);
-        }
         // when moved into the struct,
         // the pointer in bs is still pointing at maindata in self
         scratch.bs = bs;

@@ -1,4 +1,5 @@
 use core::cmp;
+use core::mem;
 
 use crate::bits::Bits;
 use crate::SHORT_BLOCK_TYPE;
@@ -222,6 +223,81 @@ pub fn restore_reservoir(
     scratch_bits.len = bytes_have + frame_bytes;
     scratch_bits.position = 0;
     return decoder.reserv >= main_data_begin as i32;
+}
+
+pub unsafe fn decode(
+    decoder: &mut ffi::mp3dec_t,
+    scratch: &mut decoder::Scratch,
+    native_gr_info: &mut [GrInfo],
+    channel_num: usize,
+) {
+    let mut gr_info: [ffi::L3_gr_info_t; 4] = mem::zeroed();
+    for (native, ffi) in native_gr_info.into_iter().zip(&mut gr_info) {
+        native.apply_to_ffi(ffi);
+    }
+    let gr_info = &mut gr_info[..native_gr_info.len()];
+    for channel in 0..channel_num {
+        let ist_pos = &mut scratch.ist_pos;
+        let scf = &mut scratch.scf;
+        let grbuf = &mut scratch.grbuf;
+        let layer3gr_limit =
+            scratch.bits.position as libc::c_int + gr_info[channel].part_23_length as libc::c_int;
+        scratch.bits.with_bits(|bs| {
+            let mut copy = bs.bs_copy();
+            ffi::L3_decode_scalefactors(
+                decoder.header.as_mut_ptr(),
+                ist_pos[channel].as_mut_ptr(),
+                &mut copy,
+                gr_info[channel..].as_mut_ptr(),
+                scf.as_mut_ptr(),
+                channel as _,
+            );
+            ffi::L3_huffman(
+                grbuf[channel].as_mut_ptr(),
+                &mut copy,
+                gr_info[channel..].as_mut_ptr(),
+                scf.as_mut_ptr(),
+                layer3gr_limit,
+            );
+            bs.position = copy.pos as _;
+        });
+    }
+
+    if header::test_1_stereo(&decoder.header) {
+        ffi::L3_intensity_stereo(
+            scratch.grbuf[0].as_mut_ptr(),
+            scratch.ist_pos[1].as_mut_ptr(),
+            gr_info.as_mut_ptr(),
+            decoder.header.as_mut_ptr(),
+        );
+    } else if header::is_ms_stereo(&decoder.header) {
+        ffi::L3_midside_stereo(scratch.grbuf[0].as_mut_ptr(), 576);
+    }
+
+    for channel in 0..channel_num {
+        let gr_info = gr_info[channel];
+        let mut aa_bands = 31;
+        let n_long_bands = if 0 != gr_info.mixed_block_flag { 2 } else { 0 }
+            << (header::get_my_sample_rate(&decoder.header) == 2) as libc::c_int;
+        if 0 != gr_info.n_short_sfb {
+            aa_bands = n_long_bands - 1;
+            ffi::L3_reorder(
+                scratch.grbuf[channel]
+                    .as_mut_ptr()
+                    .offset((n_long_bands * 18) as isize),
+                scratch.syn[0].as_mut_ptr(),
+                gr_info.sfbtab.offset(gr_info.n_long_sfb as isize),
+            );
+        }
+        ffi::L3_antialias(scratch.grbuf[channel].as_mut_ptr(), aa_bands);
+        ffi::L3_imdct_gr(
+            scratch.grbuf[channel].as_mut_ptr(),
+            decoder.mdct_overlap[channel].as_mut_ptr(),
+            gr_info.block_type as libc::c_uint,
+            n_long_bands as libc::c_uint,
+        );
+        ffi::L3_change_sign(scratch.grbuf[channel].as_mut_ptr());
+    }
 }
 
 #[cfg(test)]

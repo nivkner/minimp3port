@@ -58,6 +58,16 @@ pub fn test_not_mpeg25(hdr: &[u8]) -> bool {
     hdr[1] & 0x10 != 0
 }
 
+#[inline]
+pub fn test_1_stereo(hdr: &[u8]) -> bool {
+    hdr[3] & 0x10 != 0
+}
+
+#[inline]
+pub fn is_ms_stereo(hdr: &[u8]) -> bool {
+    hdr[3] & 0xE0 == 0x60
+}
+
 pub fn is_valid(hdr: &[u8]) -> bool {
     hdr[0] == 0xFF
         && ((hdr[1] & 0xF0) == 0xF0 || (hdr[1] & 0xFE) == 0xE2)

@@ -100,11 +100,11 @@ fn decode_frame(
         bs_frame.position += 16;
     }
 
-    let mut scratch: ffi::mp3dec_scratch_t = unsafe { mem::zeroed() };
-    let mut native_scratch = decoder::Scratch::default();
+    let mut scratch = decoder::Scratch::default();
     let mut success = true;
     if info.layer == 3 {
-        let main_data_begin = l3::read_side_info(&mut bs_frame, &mut native_scratch.gr_info, hdr);
+        let mut gr_info = [l3::GrInfo::default(); 4];
+        let main_data_begin = l3::read_side_info(&mut bs_frame, &mut gr_info, hdr);
         if main_data_begin < 0 || bs_frame.position > bs_frame.limit() {
             decoder_init(decoder);
             return 0;
@@ -112,20 +112,20 @@ fn decode_frame(
         success = l3::restore_reservoir(
             decoder,
             &mut bs_frame,
-            &mut native_scratch.bits,
+            &mut scratch.bits,
             main_data_begin as _,
         );
-        native_scratch.convert_to_ffi(&mut scratch);
+
         if success {
             let count = if header::test_mpeg1(hdr) { 2 } else { 1 };
             for igr in 0..count {
                 unsafe {
                     ptr::write_bytes(&mut scratch.grbuf, 0, 1);
-                    ffi::L3_decode(
+                    l3::decode(
                         decoder,
                         &mut scratch,
-                        scratch.gr_info[((igr * info.channels) as _)..].as_mut_ptr(),
-                        info.channels,
+                        &mut gr_info[((igr * info.channels) as _)..],
+                        info.channels as _,
                     );
                     ffi::mp3d_synth_granule(
                         decoder.qmf_state.as_mut_ptr(),
@@ -139,7 +139,9 @@ fn decode_frame(
                 pcm_pos += 576 * info.channels as usize;
             }
         }
-        unsafe { ffi::L3_save_reservoir(decoder, &mut scratch) };
+        let mut ffi_scratch: ffi::mp3dec_scratch_t = unsafe { mem::zeroed() };
+        scratch.convert_to_ffi(&mut ffi_scratch);
+        unsafe { ffi::L3_save_reservoir(decoder, &mut ffi_scratch) };
     } else {
         let mut bs_copy = unsafe { bs_frame.bs_copy() };
         let mut sci = unsafe {
