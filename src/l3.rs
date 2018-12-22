@@ -1,8 +1,8 @@
 use core::cmp;
 
-use bits::Bits;
-use SHORT_BLOCK_TYPE;
-use {decoder, ffi, header};
+use crate::bits::Bits;
+use crate::SHORT_BLOCK_TYPE;
+use crate::{decoder, ffi, header};
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct GrInfo {
@@ -228,6 +228,7 @@ pub fn restore_reservoir(
 mod tests {
     use super::*;
     use core::{mem, slice};
+    use quickcheck::quickcheck;
     use std::vec::Vec;
 
     // used instead of PartialEq to know what part was not equal

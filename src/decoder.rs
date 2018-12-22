@@ -1,8 +1,8 @@
-use bits::Bits;
-use ffi;
-use header;
-use l3;
-use {HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
+use crate::bits::Bits;
+use crate::ffi;
+use crate::header;
+use crate::l3;
+use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
 #[derive(Copy, Clone)]
 pub struct Scratch {
@@ -139,7 +139,7 @@ pub fn match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
 mod tests {
     use super::*;
     use core::fmt;
-    use quickcheck::{Arbitrary, Gen};
+    use quickcheck::{quickcheck, Arbitrary, Gen};
     use std::vec::Vec;
 
     impl Arbitrary for BitsProxy {

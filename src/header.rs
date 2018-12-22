@@ -1,6 +1,3 @@
-#[cfg(test)]
-use ffi;
-
 #[inline]
 pub fn is_mono(hdr: &[u8]) -> bool {
     hdr[3] & 0xC0 == 0xC0
@@ -140,7 +137,8 @@ pub struct ValidHeader(pub [u8; 4]);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
+    use crate::ffi;
+    use quickcheck::{quickcheck, Arbitrary, Gen};
     use std::vec::Vec;
 
     impl Arbitrary for Header {

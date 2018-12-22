@@ -1,11 +1,6 @@
 #![no_std]
 
 #[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
-extern crate libc;
-
-#[cfg(test)]
 extern crate std;
 
 mod bits;
@@ -18,8 +13,8 @@ use core::mem;
 use core::ptr;
 use core::slice;
 
-use bits::Bits;
-pub use ffi::{
+use crate::bits::Bits;
+pub use crate::ffi::{
     hdr_bitrate_kbps, hdr_sample_rate_hz, mp3d_find_frame, mp3d_sample_t, mp3dec_frame_info_t,
     mp3dec_init, mp3dec_t,
 };
@@ -197,7 +192,7 @@ fn decode_frame(
 mod tests {
     use super::*;
     use core::fmt;
-    use quickcheck::{Arbitrary, Gen};
+    use quickcheck::{quickcheck, Arbitrary, Gen};
     use std::vec::Vec;
 
     impl Arbitrary for ffi::mp3dec_t {

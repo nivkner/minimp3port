@@ -60,6 +60,7 @@ impl<'a> Bits<'a> {
 mod tests {
     use super::*;
     use core::mem;
+    use quickcheck::quickcheck;
     use std::vec::Vec;
 
     quickcheck! {
