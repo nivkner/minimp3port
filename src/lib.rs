@@ -52,6 +52,7 @@ const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 const SHORT_BLOCK_TYPE: u8 = 2;
+const MAX_BITRESERVOIR_BYTES: usize = 511;
 
 fn decode_frame(
     decoder: &mut ffi::mp3dec_t,
@@ -139,9 +140,7 @@ fn decode_frame(
                 pcm_pos += 576 * info.channels as usize;
             }
         }
-        let mut ffi_scratch: ffi::mp3dec_scratch_t = unsafe { mem::zeroed() };
-        scratch.convert_to_ffi(&mut ffi_scratch);
-        unsafe { ffi::L3_save_reservoir(decoder, &mut ffi_scratch) };
+        l3::save_reservoir(decoder, &mut scratch.bits);
     } else {
         let mut bs_copy = unsafe { bs_frame.bs_copy() };
         let mut sci = unsafe {

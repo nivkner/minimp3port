@@ -2,8 +2,8 @@ use core::cmp;
 use core::mem;
 
 use crate::bits::Bits;
-use crate::SHORT_BLOCK_TYPE;
 use crate::{decoder, ffi, header};
+use crate::{MAX_BITRESERVOIR_BYTES, SHORT_BLOCK_TYPE};
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct GrInfo {
@@ -225,6 +225,20 @@ pub fn restore_reservoir(
     return decoder.reserv >= main_data_begin as i32;
 }
 
+pub fn save_reservoir(decoder: &mut ffi::mp3dec_t, bits: &mut decoder::BitsProxy) {
+    let mut position = bits.position / 8;
+    let mut remains = bits.len - position;
+    if remains > MAX_BITRESERVOIR_BYTES {
+        position += remains - MAX_BITRESERVOIR_BYTES;
+        remains = MAX_BITRESERVOIR_BYTES;
+    }
+    if remains > 0 {
+        decoder.reserv_buf[..remains]
+            .copy_from_slice(&bits.maindata[position..(position + remains)])
+    }
+    decoder.reserv = remains as _;
+}
+
 pub unsafe fn decode(
     decoder: &mut ffi::mp3dec_t,
     scratch: &mut decoder::Scratch,
@@ -386,6 +400,27 @@ mod tests {
             assert_eq!(&ffi_scratch.maindata as &[u8], &native_scratch.bits.maindata as &[u8]);
 
             assert!(native_bs.position as i32 == ffi_bs.pos);
+            true
+        }
+    }
+
+    quickcheck! {
+        fn test_save_reservoir(decoder: ffi::mp3dec_t, bits: decoder::BitsProxy) -> bool {
+            let mut native_decoder = decoder;
+            let mut ffi_decoder = native_decoder;
+
+            let mut ffi_scratch = unsafe { mem::zeroed() };
+
+            let mut native_scratch = decoder::Scratch::default();
+            native_scratch.bits = bits;
+            native_scratch.convert_to_ffi(&mut ffi_scratch);
+
+            save_reservoir(&mut native_decoder, &mut native_scratch.bits);
+            unsafe { ffi::L3_save_reservoir(&mut ffi_decoder, &mut ffi_scratch) };
+            assert_eq!(ffi_scratch.bs.limit, native_scratch.bits.with_bits(|b| b.limit()) as _);
+            assert_eq!(ffi_scratch.bs.pos, native_scratch.bits.position as _);
+            assert_eq!(&ffi_scratch.maindata as &[u8], &native_scratch.bits.maindata as &[u8]);
+            assert_eq!(ffi_decoder, native_decoder);
             true
         }
     }

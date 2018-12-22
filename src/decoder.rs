@@ -1,5 +1,4 @@
 use crate::bits::Bits;
-use crate::ffi;
 use crate::header;
 use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
@@ -51,23 +50,6 @@ impl Default for Scratch {
             syn: [[0.0; 64]; 33],
             ist_pos: [[0; 39]; 2],
         }
-    }
-}
-
-impl Scratch {
-    // cannot be a From implementation because scratch is self referencial
-    pub fn convert_to_ffi(mut self, scratch: &mut ffi::mp3dec_scratch_t) {
-        let bs = self.bits.with_bits(|bits| unsafe { bits.bs_copy() });
-        // when moved into the struct,
-        // the pointer in bs is still pointing at maindata in self
-        scratch.bs = bs;
-        scratch.maindata = self.bits.maindata;
-        scratch.grbuf = self.grbuf;
-        scratch.scf = self.scf;
-        scratch.syn = self.syn;
-        scratch.ist_pos = self.ist_pos;
-        // set bs to point to its maindata
-        scratch.bs.buf = scratch.maindata.as_ptr();
     }
 }
 
@@ -132,16 +114,42 @@ pub fn match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffi;
     use core::fmt;
     use quickcheck::{quickcheck, Arbitrary, Gen};
     use std::vec::Vec;
+
+    impl Scratch {
+        // cannot be a From implementation because scratch is self referencial
+        pub fn convert_to_ffi(mut self, scratch: &mut ffi::mp3dec_scratch_t) {
+            let bs = self.bits.with_bits(|bits| unsafe { bits.bs_copy() });
+            // when moved into the struct,
+            // the pointer in bs is still pointing at maindata in self
+            scratch.bs = bs;
+            scratch.maindata = self.bits.maindata;
+            scratch.grbuf = self.grbuf;
+            scratch.scf = self.scf;
+            scratch.syn = self.syn;
+            scratch.ist_pos = self.ist_pos;
+            // set bs to point to its maindata
+            scratch.bs.buf = scratch.maindata.as_ptr();
+        }
+    }
 
     impl Arbitrary for BitsProxy {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let mut bits = BitsProxy::default();
             let maindata: Vec<_> = (0..2815).map(|_| u8::arbitrary(g)).collect();
-            bits.position = (usize::arbitrary(g) % 2815) * 8;
-            bits.len = usize::arbitrary(g) % 2815;
+            // the limit should be greater than the position
+            let len = usize::arbitrary(g) % 2815;
+            let position = (usize::arbitrary(g) % 2815) * 8;
+            if position > len * 8 {
+                bits.len = position / 8;
+                bits.position = len * 8;
+            } else {
+                bits.position = position;
+                bits.len = len;
+            }
             bits.maindata.copy_from_slice(&maindata);
             bits
         }
