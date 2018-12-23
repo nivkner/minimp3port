@@ -357,16 +357,17 @@ mod tests {
 
             let mut native_gr_info = [GrInfo::default(); 4];
             let mut ffi_gr_info: [ffi::L3_gr_info_t; 4] = unsafe { mem::zeroed() };
-            for i in 0..4 {
-                native_gr_info[i].apply_to_ffi(&mut ffi_gr_info[i]);
+            for (native, ffi) in native_gr_info.iter().zip(&mut ffi_gr_info) {
+                native.apply_to_ffi(ffi);
             }
 
             let native_res = read_side_info(&mut native_bs, &mut native_gr_info, &hdr.0);
             let ffi_res = unsafe {
                 ffi::L3_read_side_info(&mut ffi_bs, ffi_gr_info.as_mut_ptr(), hdr.0.as_ptr())
             };
-            assert!(native_res == ffi_res);
-            assert!(native_bs.position as i32 == ffi_bs.pos);
+
+            assert_eq!(native_res, ffi_res);
+            assert_eq!(native_bs.position as i32, ffi_bs.pos);
             native_gr_info.iter().enumerate().for_each(|(i, native)| {
                 let mut info = unsafe { mem::zeroed() };
                 native.apply_to_ffi(&mut info);
@@ -394,12 +395,13 @@ mod tests {
 
             let ffi_res = unsafe { ffi::L3_restore_reservoir(&mut ffi_decoder, &mut ffi_bs, &mut ffi_scratch, main_data_begin as _) };
             let native_res = restore_reservoir(&mut native_decoder, &mut native_bs, &mut native_scratch.bits, main_data_begin as _);
+
             assert_eq!(ffi_res != 0, native_res);
             assert_eq!(ffi_scratch.bs.limit, native_scratch.bits.with_bits(|b| b.limit()) as _);
             assert_eq!(ffi_scratch.bs.pos, native_scratch.bits.position as _);
             assert_eq!(&ffi_scratch.maindata as &[u8], &native_scratch.bits.maindata as &[u8]);
-
-            assert!(native_bs.position as i32 == ffi_bs.pos);
+            assert_eq!(native_decoder, ffi_decoder);
+            assert_eq!(native_bs.position as i32, ffi_bs.pos);
             true
         }
     }
@@ -417,6 +419,7 @@ mod tests {
 
             save_reservoir(&mut native_decoder, &mut native_scratch.bits);
             unsafe { ffi::L3_save_reservoir(&mut ffi_decoder, &mut ffi_scratch) };
+
             assert_eq!(ffi_scratch.bs.limit, native_scratch.bits.with_bits(|b| b.limit()) as _);
             assert_eq!(ffi_scratch.bs.pos, native_scratch.bits.position as _);
             assert_eq!(&ffi_scratch.maindata as &[u8], &native_scratch.bits.maindata as &[u8]);
