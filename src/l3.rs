@@ -242,7 +242,7 @@ pub fn save_reservoir(decoder: &mut ffi::mp3dec_t, bits: &mut decoder::BitsProxy
 pub unsafe fn decode(
     decoder: &mut ffi::mp3dec_t,
     scratch: &mut decoder::Scratch,
-    native_gr_info: &mut [GrInfo],
+    native_gr_info: &[GrInfo],
     channel_num: usize,
 ) {
     let mut gr_info: [ffi::L3_gr_info_t; 4] = mem::zeroed();
@@ -259,18 +259,18 @@ pub unsafe fn decode(
         scratch.bits.with_bits(|bs| {
             let mut copy = bs.bs_copy();
             ffi::L3_decode_scalefactors(
-                decoder.header.as_mut_ptr(),
+                decoder.header.as_ptr(),
                 ist_pos[channel].as_mut_ptr(),
                 &mut copy,
-                gr_info[channel..].as_mut_ptr(),
+                &gr_info[channel],
                 scf.as_mut_ptr(),
                 channel as _,
             );
             ffi::L3_huffman(
                 grbuf[channel].as_mut_ptr(),
                 &mut copy,
-                gr_info[channel..].as_mut_ptr(),
-                scf.as_mut_ptr(),
+                &gr_info[channel],
+                scf.as_ptr(),
                 layer3gr_limit,
             );
             bs.position = copy.pos as _;
@@ -281,8 +281,8 @@ pub unsafe fn decode(
         ffi::L3_intensity_stereo(
             scratch.grbuf[0].as_mut_ptr(),
             scratch.ist_pos[1].as_mut_ptr(),
-            gr_info.as_mut_ptr(),
-            decoder.header.as_mut_ptr(),
+            gr_info.as_ptr(),
+            decoder.header.as_ptr(),
         );
     } else if header::is_ms_stereo(&decoder.header) {
         ffi::L3_midside_stereo(scratch.grbuf[0].as_mut_ptr(), 576);
