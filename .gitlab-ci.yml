@@ -1,13 +1,17 @@
 image: rustlang/rust:nightly-slim
 
-test1:
+style:
+  stage: test
+  script:
+    - rustup component add rustfmt clippy
+    - cargo fmt -- --check
+    - cargo clippy --all-targets
+
+substance:
   stage: test
   script:
     - export RUSTFLAGS="-Zsanitizer=address"
     - export ASAN_OPTIONS=detect_odr_violation=0
-    - rustup component add rustfmt clippy
-    - cargo fmt -- --check
-    - cargo clippy --all-targets
     - cargo test
     - cargo build
     - mv target/debug/minimp3 minimp3
