@@ -74,7 +74,7 @@ impl GrInfo {
     }
 }
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 static G_SCF_LONG: [[u8;23]; 8] = [
     [ 6,6,6,6,6,6,8,10,12,14,16,20,24,28,32,38,46,52,60,68,58,54,0 ],
     [ 12,12,12,12,12,12,16,20,24,28,32,40,48,56,64,76,90,2,2,2,2,2,0 ],
@@ -85,7 +85,8 @@ static G_SCF_LONG: [[u8;23]; 8] = [
     [ 4,4,4,4,4,4,6,6,6,8,10,12,16,18,22,28,34,40,46,54,54,192,0 ],
     [ 4,4,4,4,4,4,6,6,8,10,12,16,20,24,30,38,46,56,68,84,102,26,0 ],
 ];
-#[cfg_attr(rustfmt, rustfmt_skip)]
+
+#[rustfmt::skip]
 static G_SCF_SHORT: [[u8; 40]; 8] = [
     [ 4,4,4,4,4,4,4,4,4,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,24,24,24,30,30,30,40,40,40,18,18,18,0 ],
     [ 8,8,8,8,8,8,8,8,8,12,12,12,16,16,16,20,20,20,24,24,24,28,28,28,36,36,36,2,2,2,2,2,2,2,2,2,26,26,26,0 ],
@@ -97,7 +98,7 @@ static G_SCF_SHORT: [[u8; 40]; 8] = [
     [ 4,4,4,4,4,4,4,4,4,4,4,4,6,6,6,8,8,8,12,12,12,16,16,16,20,20,20,26,26,26,34,34,34,42,42,42,12,12,12,0 ],
 ];
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 static G_SCF_MIXED: [&'static [u8]; 8] = [
     &[ 6,6,6,6,6,6,6,6,6,8,8,8,10,10,10,12,12,12,14,14,14,18,18,18,24,24,24,30,30,30,40,40,40,18,18,18,0 ],
     &[ 12,12,12,4,4,4,8,8,8,12,12,12,16,16,16,20,20,20,24,24,24,28,28,28,36,36,36,2,2,2,2,2,2,2,2,2,26,26,26,0 ],
@@ -136,7 +137,7 @@ pub fn read_side_info(bs: &mut Bits, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
             scfsi <<= 4;
         }
         gr.part_23_length = bs.get_bits(12) as _;
-        part_23_sum += gr.part_23_length as i32;
+        part_23_sum += i32::from(gr.part_23_length);
         gr.big_values = bs.get_bits(9) as _;
         if gr.big_values > 288 {
             return -1;
@@ -222,7 +223,7 @@ pub fn restore_reservoir(
         .copy_from_slice(&bs.data[bs_bytes..(bs_bytes + frame_bytes)]);
     scratch_bits.len = bytes_have + frame_bytes;
     scratch_bits.position = 0;
-    return decoder.reserv >= main_data_begin as i32;
+    decoder.reserv >= main_data_begin as i32
 }
 
 pub fn save_reservoir(decoder: &mut ffi::mp3dec_t, bits: &mut decoder::BitsProxy) {
@@ -246,30 +247,30 @@ pub unsafe fn decode(
     channel_num: usize,
 ) {
     let mut gr_info: [ffi::L3_gr_info_t; 4] = mem::zeroed();
-    for (native, ffi) in native_gr_info.into_iter().zip(&mut gr_info) {
+    for (native, ffi) in native_gr_info.iter().zip(&mut gr_info) {
         native.apply_to_ffi(ffi);
     }
-    let gr_info = &mut gr_info[..native_gr_info.len()];
-    for channel in 0..channel_num {
+    let gr_info = &gr_info[..native_gr_info.len()];
+    for (channel, info) in gr_info.iter().enumerate().take(channel_num) {
         let ist_pos = &mut scratch.ist_pos;
         let scf = &mut scratch.scf;
         let grbuf = &mut scratch.grbuf;
         let layer3gr_limit =
-            scratch.bits.position as libc::c_int + gr_info[channel].part_23_length as libc::c_int;
+            scratch.bits.position as libc::c_int + libc::c_int::from(info.part_23_length);
         scratch.bits.with_bits(|bs| {
             let mut copy = bs.bs_copy();
             ffi::L3_decode_scalefactors(
                 decoder.header.as_ptr(),
                 ist_pos[channel].as_mut_ptr(),
                 &mut copy,
-                &gr_info[channel],
+                info,
                 scf.as_mut_ptr(),
                 channel as _,
             );
             ffi::L3_huffman(
                 grbuf[channel].as_mut_ptr(),
                 &mut copy,
-                &gr_info[channel],
+                info,
                 scf.as_ptr(),
                 layer3gr_limit,
             );
@@ -307,7 +308,7 @@ pub unsafe fn decode(
         ffi::L3_imdct_gr(
             scratch.grbuf[channel].as_mut_ptr(),
             decoder.mdct_overlap[channel].as_mut_ptr(),
-            gr_info.block_type as libc::c_uint,
+            gr_info.block_type.into(),
             n_long_bands as libc::c_uint,
         );
         ffi::L3_change_sign(scratch.grbuf[channel].as_mut_ptr());

@@ -1,5 +1,6 @@
 #![allow(bad_style)]
 #![allow(unused)]
+#![allow(clippy::all)]
 
 extern crate minimp3port;
 

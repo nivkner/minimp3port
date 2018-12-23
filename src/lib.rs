@@ -1,4 +1,5 @@
 #![no_std]
+#![deny(clippy::all)]
 
 #[cfg(test)]
 extern crate std;
@@ -86,7 +87,7 @@ fn decode_frame(
     info.frame_bytes = i + frame_size;
     info.channels = if header::is_mono(hdr) { 1 } else { 2 };
     info.hz = header::sample_rate_hz(hdr);
-    info.layer = (4 - header::get_layer(hdr)) as _;
+    info.layer = (4 - header::get_layer(hdr)).into();
     info.bitrate_kbps = header::bitrate_kbps(hdr);
 
     if pcm.is_none() {
@@ -125,7 +126,7 @@ fn decode_frame(
                     l3::decode(
                         decoder,
                         &mut scratch,
-                        &mut gr_info[((igr * info.channels) as _)..],
+                        &gr_info[((igr * info.channels) as _)..],
                         info.channels as _,
                     );
                     ffi::mp3d_synth_granule(
@@ -257,7 +258,7 @@ mod tests {
         fn eq(&self, other: &Self) -> bool {
             let self_slice = unsafe { slice::from_raw_parts(self.buf, (self.limit / 8) as _) };
             let other_slice = unsafe { slice::from_raw_parts(other.buf, (other.limit / 8) as _) };
-            self_slice == other_slice && self.pos == other.pos && self.limit == self.limit
+            self_slice == other_slice && self.pos == other.pos && self.limit == other.limit
         }
     }
 

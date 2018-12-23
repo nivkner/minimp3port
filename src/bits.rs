@@ -37,7 +37,7 @@ impl<'a> Bits<'a> {
             return 0;
         }
 
-        let mut next: u32 = self.data[idx] as u32 & (255 >> s);
+        let mut next: u32 = u32::from(self.data[idx]) & (255 >> s);
         idx += 1;
         let mut shl: i32 = amount as i32 + s as i32;
 
@@ -48,11 +48,11 @@ impl<'a> Bits<'a> {
                 break;
             }
             cache |= next << shl;
-            next = self.data[idx] as u32;
+            next = self.data[idx].into();
             idx += 1;
         }
 
-        return (cache | (next >> -shl)) as _;
+        (cache | (next >> -shl)) as _
     }
 }
 

@@ -116,7 +116,7 @@ pub fn frame_samples(hdr: &[u8]) -> i32 {
 }
 
 pub fn bitrate_kbps(hdr: &[u8]) -> i32 {
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     static HALFRATE: [u8 ; 2 * 3 * 15] = [
         0,4,8,12,16,20,24,28,32,40,48,56,64,72,80,
         0,4,8,12,16,20,24,28,32,40,48,56,64,72,80,
@@ -126,9 +126,8 @@ pub fn bitrate_kbps(hdr: &[u8]) -> i32 {
         0,16,24,28,32,40,48,56,64,80,96,112,128,160,192,
         0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,
     ];
-    2 * HALFRATE
-        [(get_bitrate(hdr) + (get_layer(hdr) - 1) * 15 + test_mpeg1(hdr) as u8 * 3 * 15) as usize]
-        as i32
+    let idx = get_bitrate(hdr) + (get_layer(hdr) - 1) * 15 + test_mpeg1(hdr) as u8 * 3 * 15;
+    2 * i32::from(HALFRATE[idx as usize])
 }
 
 pub fn sample_rate_hz(hdr: &[u8]) -> i32 {
@@ -210,19 +209,19 @@ mod tests {
 
     quickcheck! {
         fn test_frame_samples(hdr: Header) -> bool {
-            frame_samples(&hdr.0) as i64 == unsafe { ffi::hdr_frame_samples(hdr.0.as_ptr()) as i64 }
+            i64::from(frame_samples(&hdr.0)) == unsafe { i64::from(ffi::hdr_frame_samples(hdr.0.as_ptr())) }
         }
     }
 
     quickcheck! {
         fn test_bitrate_kbps(hdr: ValidHeader) -> bool {
-            bitrate_kbps(&hdr.0) as i64 == unsafe { ffi::hdr_bitrate_kbps(hdr.0.as_ptr()) as i64 }
+            i64::from(bitrate_kbps(&hdr.0)) == unsafe { i64::from(ffi::hdr_bitrate_kbps(hdr.0.as_ptr())) }
         }
     }
 
     quickcheck! {
         fn test_sample_rate_hz(hdr: ValidHeader) -> bool {
-            sample_rate_hz(&hdr.0) as i64 == unsafe { ffi::hdr_sample_rate_hz(hdr.0.as_ptr()) as i64 }
+            i64::from(sample_rate_hz(&hdr.0)) == unsafe { i64::from(ffi::hdr_sample_rate_hz(hdr.0.as_ptr())) }
         }
     }
 }

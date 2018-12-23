@@ -1,5 +1,6 @@
 #![allow(unused)]
 #![allow(bad_style)]
+#![allow(clippy::all)]
 
 fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
     let pointee_size = ::core::mem::size_of::<T>();
