@@ -17,7 +17,7 @@ pub struct GrInfo {
     pub table_select: [u8; 3],
     pub region_count: [u8; 3],
     pub subblock_gain: [u8; 3],
-    pub preflag: u8,
+    pub preflag: bool,
     pub scalefac_scale: u8,
     pub count1_table: u8,
     pub scfsi: u8,
@@ -67,7 +67,7 @@ impl GrInfo {
         gr.table_select = self.table_select;
         gr.region_count = self.region_count;
         gr.subblock_gain = self.subblock_gain;
-        gr.preflag = self.preflag;
+        gr.preflag = self.preflag as u8;
         gr.scalefac_scale = self.scalefac_scale;
         gr.count1_table = self.count1_table;
         gr.scfsi = self.scfsi;
@@ -189,9 +189,9 @@ pub fn read_side_info(bs: &mut Bits, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
         gr.table_select[1] = ((tables >> 5) & 31) as _;
         gr.table_select[2] = (tables & 31) as _;
         gr.preflag = if header::test_mpeg1(hdr) {
-            bs.get_bits(1) as _
+            bs.get_bits(1) != 0
         } else {
-            (gr.scalefac_compress >= 500) as _
+            gr.scalefac_compress >= 500
         };
 
         gr.scalefac_scale = bs.get_bits(1) as _;
