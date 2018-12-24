@@ -9,3 +9,6 @@ libc = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 quickcheck = "0.7"
+
+[workspace]
+members = ["mp3fuzz"]

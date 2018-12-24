@@ -48,8 +48,8 @@ pub unsafe fn mp3dec_decode_frame(
     )
 }
 
+pub const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 const HDR_SIZE: i32 = 4;
-const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 const SHORT_BLOCK_TYPE: u8 = 2;
@@ -58,7 +58,7 @@ const BITS_DEQUANTIZER_OUT: i32 = -1;
 const MAX_SCF: i32 = 255 + BITS_DEQUANTIZER_OUT * 4 - 210;
 const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
 
-fn decode_frame(
+pub fn decode_frame(
     decoder: &mut ffi::mp3dec_t,
     mp3: &[u8],
     pcm: Option<&mut [i16]>,

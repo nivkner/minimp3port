@@ -4,8 +4,8 @@ style:
   stage: test
   script:
     - rustup component add rustfmt clippy
-    - cargo fmt -- --check
-    - cargo clippy --all-targets
+    - cargo fmt --all -- --check
+    - cargo clippy --all --all-targets
 
 substance:
   stage: test

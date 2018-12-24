@@ -1,0 +1,9 @@
+[package]
+name = "mp3fuzz"
+version = "0.1.0"
+authors = ["Niv Kaminer <nivkner@zoho.com>"]
+edition = "2018"
+
+[dependencies]
+honggfuzz = "0.5"
+minimp3port = { path = ".." }
