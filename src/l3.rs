@@ -3,7 +3,7 @@ use core::mem;
 
 use crate::bits::Bits;
 use crate::{decoder, ffi, header};
-use crate::{MAX_BITRESERVOIR_BYTES, SHORT_BLOCK_TYPE};
+use crate::{BITS_DEQUANTIZER_OUT, MAX_BITRESERVOIR_BYTES, MAX_SCFI, SHORT_BLOCK_TYPE};
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct GrInfo {
@@ -240,6 +240,102 @@ pub fn save_reservoir(decoder: &mut ffi::mp3dec_t, bits: &mut decoder::BitsProxy
     decoder.reserv = remains as _;
 }
 
+pub fn decode_scalefactors(
+    hdr: &[u8],
+    ist_pos: &mut [u8],
+    bs: &mut Bits,
+    gr: &ffi::L3_gr_info_t,
+    scf: &mut [f32],
+    ch: i32,
+) {
+    let g_scf_partitions: [[u8; 28]; 3] = [
+        [
+            6, 5, 5, 5, 6, 5, 5, 5, 6, 5, 7, 3, 11, 10, 0, 0, 7, 7, 7, 0, 6, 6, 6, 3, 8, 8, 5, 0,
+        ],
+        [
+            8, 9, 6, 12, 6, 9, 9, 9, 6, 9, 12, 6, 15, 18, 0, 0, 6, 15, 12, 0, 6, 12, 9, 6, 6, 18,
+            9, 0,
+        ],
+        [
+            9, 9, 6, 12, 9, 9, 9, 9, 9, 9, 12, 6, 18, 18, 0, 0, 12, 12, 12, 0, 12, 9, 9, 6, 15, 12,
+            9, 0,
+        ],
+    ];
+    // 0 == long, 1 == mixed, 2 == short
+    let scf_partition: &[u8] =
+        &g_scf_partitions[(0 != gr.n_short_sfb) as usize + (0 == gr.n_long_sfb) as usize];
+    let mut iscf: [u8; 40] = [0; 40];
+    let mut bs_copy = unsafe { bs.bs_copy() };
+    if header::test_mpeg1(hdr) {
+        let g_scfc_decode: [u8; 16] = [0, 1, 2, 3, 12, 5, 6, 7, 9, 10, 11, 13, 14, 15, 18, 19];
+        let part = g_scfc_decode[gr.scalefac_compress as usize] as u8;
+        let scf_size = [part >> 2, part >> 2, part & 3, part & 3];
+        unsafe {
+            ffi::L3_read_scalefactors(
+                iscf.as_mut_ptr(),
+                ist_pos.as_mut_ptr(),
+                scf_size.as_ptr(),
+                scf_partition.as_ptr(),
+                &mut bs_copy,
+                gr.scfsi.into(),
+            )
+        };
+    } else {
+        let mut scf_size = [0; 4];
+        let g_mod: [u8; 24] = [
+            5, 5, 4, 4, 5, 5, 4, 1, 4, 3, 1, 1, 5, 6, 6, 1, 4, 4, 4, 1, 4, 3, 1, 1,
+        ];
+        let ist: i32 = (header::test_1_stereo(hdr) && (ch != 0)) as i32;
+        let mut sfc = i32::from(gr.scalefac_compress) >> ist;
+        let mut k = ist as usize * 3 * 4;
+        while sfc >= 0 {
+            let mut modprod = 1;
+            for i in (0..=3).rev() {
+                scf_size[i] = (sfc / modprod % i32::from(g_mod[k + i])) as u8;
+                modprod *= i32::from(g_mod[k + i]);
+            }
+            sfc -= modprod;
+            k += 4
+        }
+        unsafe {
+            ffi::L3_read_scalefactors(
+                iscf.as_mut_ptr(),
+                ist_pos.as_mut_ptr(),
+                scf_size.as_ptr(),
+                scf_partition[k..].as_ptr(),
+                &mut bs_copy,
+                -16,
+            )
+        };
+    }
+    bs.position = bs_copy.pos as _;
+
+    let scf_shift: i32 = i32::from(gr.scalefac_scale) + 1;
+    // is Long
+    if 0 != gr.n_short_sfb {
+        let sh = 3 - scf_shift as u8;
+        for i in (0..gr.n_short_sfb).step_by(3) {
+            let step = (gr.n_long_sfb + i) as usize;
+            iscf[step] += gr.subblock_gain[0] << sh;
+            iscf[step + 1] += gr.subblock_gain[1] << sh;
+            iscf[step + 2] += gr.subblock_gain[2] << sh;
+        }
+    } else if 0 != gr.preflag {
+        let g_preamp: [u8; 10] = [1, 1, 1, 1, 2, 2, 3, 3, 3, 2];
+        for (iscf, preamp) in iscf.iter_mut().skip(11).zip(g_preamp.iter()) {
+            *iscf += preamp
+        }
+    }
+    let gain_exp = i32::from(gr.global_gain) + BITS_DEQUANTIZER_OUT * 4
+        - 210
+        - if header::is_ms_stereo(hdr) { 2 } else { 0 };
+    let gain = unsafe { ffi::L3_ldexp_q2((1 << (MAX_SCFI / 4)) as f32, MAX_SCFI - gain_exp) };
+    // the length of the scalefactor band, whichever type it is
+    for i in 0..(gr.n_long_sfb as usize + gr.n_short_sfb as usize) {
+        scf[i] = unsafe { ffi::L3_ldexp_q2(gain, i32::from(iscf[i]) << scf_shift) };
+    }
+}
+
 pub unsafe fn decode(
     decoder: &mut ffi::mp3dec_t,
     scratch: &mut decoder::Scratch,
@@ -255,18 +351,17 @@ pub unsafe fn decode(
         let ist_pos = &mut scratch.ist_pos;
         let scf = &mut scratch.scf;
         let grbuf = &mut scratch.grbuf;
-        let layer3gr_limit =
-            scratch.bits.position as libc::c_int + libc::c_int::from(info.part_23_length);
-        scratch.bits.with_bits(|bs| {
-            let mut copy = bs.bs_copy();
-            ffi::L3_decode_scalefactors(
-                decoder.header.as_ptr(),
-                ist_pos[channel].as_mut_ptr(),
-                &mut copy,
+        let layer3gr_limit = scratch.bits.position as i32 + i32::from(info.part_23_length);
+        scratch.bits.with_bits(|mut bs| {
+            decode_scalefactors(
+                &decoder.header,
+                &mut ist_pos[channel],
+                &mut bs,
                 info,
-                scf.as_mut_ptr(),
+                scf,
                 channel as _,
             );
+            let mut copy = bs.bs_copy();
             ffi::L3_huffman(
                 grbuf[channel].as_mut_ptr(),
                 &mut copy,
@@ -293,7 +388,7 @@ pub unsafe fn decode(
         let gr_info = gr_info[channel];
         let mut aa_bands = 31;
         let n_long_bands = if 0 != gr_info.mixed_block_flag { 2 } else { 0 }
-            << (header::get_my_sample_rate(&decoder.header) == 2) as libc::c_int;
+            << (header::get_my_sample_rate(&decoder.header) == 2) as i32;
         if 0 != gr_info.n_short_sfb {
             aa_bands = n_long_bands - 1;
             ffi::L3_reorder(
@@ -309,7 +404,7 @@ pub unsafe fn decode(
             scratch.grbuf[channel].as_mut_ptr(),
             decoder.mdct_overlap[channel].as_mut_ptr(),
             gr_info.block_type.into(),
-            n_long_bands as libc::c_uint,
+            n_long_bands as u32,
         );
         ffi::L3_change_sign(scratch.grbuf[channel].as_mut_ptr());
     }

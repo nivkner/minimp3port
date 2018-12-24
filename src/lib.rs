@@ -54,6 +54,9 @@ const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 const SHORT_BLOCK_TYPE: u8 = 2;
 const MAX_BITRESERVOIR_BYTES: usize = 511;
+const BITS_DEQUANTIZER_OUT: i32 = -1;
+const MAX_SCF: i32 = 255 + BITS_DEQUANTIZER_OUT * 4 - 210;
+const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
 
 fn decode_frame(
     decoder: &mut ffi::mp3dec_t,
