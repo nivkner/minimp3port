@@ -5,7 +5,7 @@ use crate::bits::Bits;
 use crate::{decoder, ffi, header};
 use crate::{BITS_DEQUANTIZER_OUT, MAX_BITRESERVOIR_BYTES, MAX_SCFI, SHORT_BLOCK_TYPE};
 
-#[derive(Copy, Clone, PartialEq, Debug, Default)]
+#[derive(Copy, Clone, Default)]
 pub struct GrInfo {
     pub sfb_table: Option<SFBTable>,
     pub part_23_length: u16,
@@ -24,7 +24,7 @@ pub struct GrInfo {
 }
 
 // contains the table and describes the length
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone)]
 pub enum SFBTable {
     // corresponds to n_long_sfb == 22
     Long(&'static [u8]),
@@ -407,120 +407,5 @@ pub unsafe fn decode(
             n_long_bands as u32,
         );
         ffi::L3_change_sign(scratch.grbuf[channel].as_mut_ptr());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use core::{mem, slice};
-    use quickcheck::quickcheck;
-    use std::vec::Vec;
-
-    // used instead of PartialEq to know what part was not equal
-    fn compare_gr_info(this: &ffi::L3_gr_info_t, other: &ffi::L3_gr_info_t) {
-        // can be between 23 and 40, figure out how that is figured out
-        let this_sfbtab = unsafe { slice::from_raw_parts(this.sfbtab, 23) };
-        let other_sfbtab = unsafe { slice::from_raw_parts(other.sfbtab, 23) };
-        assert_eq!(this_sfbtab, other_sfbtab, "sfbtab");
-        assert_eq!(this.part_23_length, other.part_23_length, "part_23_length");
-        assert_eq!(this.big_values, other.big_values, "big_values");
-        assert_eq!(
-            this.scalefac_compress, other.scalefac_compress,
-            "scalefac_compress"
-        );
-        assert_eq!(this.global_gain, other.global_gain, "global_gain");
-        assert_eq!(this.block_type, other.block_type, "block_type");
-        assert_eq!(
-            this.mixed_block_flag, other.mixed_block_flag,
-            "mixed_block_flag"
-        );
-        assert_eq!(this.n_long_sfb, other.n_long_sfb, "n_long_sfb");
-        assert_eq!(this.n_short_sfb, other.n_short_sfb, "n_short_sfb");
-        assert_eq!(this.table_select.as_ref(), other.table_select.as_ref());
-        assert_eq!(this.region_count.as_ref(), other.region_count.as_ref());
-        assert_eq!(this.subblock_gain.as_ref(), other.subblock_gain.as_ref());
-        assert_eq!(this.preflag, other.preflag, "preflag");
-        assert_eq!(this.scalefac_scale, other.scalefac_scale, "scalefac_scale");
-        assert_eq!(this.count1_table, other.count1_table, "count1_table");
-        assert_eq!(this.scfsi, other.scfsi, "scfsi");
-    }
-
-    quickcheck! {
-        fn test_read_side_info(data: Vec<u8>, hdr: header::ValidHeader) -> bool {
-            let mut native_bs = Bits::new(&data);
-            let mut ffi_bs = unsafe { native_bs.bs_copy() };
-
-            let mut native_gr_info = [GrInfo::default(); 4];
-            let mut ffi_gr_info: [ffi::L3_gr_info_t; 4] = unsafe { mem::zeroed() };
-            for (native, ffi) in native_gr_info.iter().zip(&mut ffi_gr_info) {
-                native.apply_to_ffi(ffi);
-            }
-
-            let native_res = read_side_info(&mut native_bs, &mut native_gr_info, &hdr.0);
-            let ffi_res = unsafe {
-                ffi::L3_read_side_info(&mut ffi_bs, ffi_gr_info.as_mut_ptr(), hdr.0.as_ptr())
-            };
-
-            assert_eq!(native_res, ffi_res);
-            assert_eq!(native_bs.position as i32, ffi_bs.pos);
-            native_gr_info.iter().enumerate().for_each(|(i, native)| {
-                let mut info = unsafe { mem::zeroed() };
-                native.apply_to_ffi(&mut info);
-                compare_gr_info(&info, &ffi_gr_info[i]);
-            });
-            true
-        }
-    }
-
-    quickcheck! {
-        fn test_restore_reservoir(decoder: ffi::mp3dec_t, data: Vec<u8>, bits: decoder::BitsProxy, main_data_begin: u32) -> bool {
-            let mut native_bs = Bits::new(&data);
-            let mut ffi_bs = unsafe { native_bs.bs_copy() };
-
-            let mut native_decoder = decoder;
-            // reserv musn't be negetive, causes stack overflow in the c version
-            native_decoder.reserv = native_decoder.reserv.abs();
-            let mut ffi_decoder = native_decoder;
-
-            let mut ffi_scratch = unsafe { mem::zeroed() };
-
-            let mut native_scratch = decoder::Scratch::default();
-            native_scratch.bits = bits;
-            native_scratch.convert_to_ffi(&mut ffi_scratch);
-
-            let ffi_res = unsafe { ffi::L3_restore_reservoir(&mut ffi_decoder, &mut ffi_bs, &mut ffi_scratch, main_data_begin as _) };
-            let native_res = restore_reservoir(&mut native_decoder, &mut native_bs, &mut native_scratch.bits, main_data_begin as _);
-
-            assert_eq!(ffi_res != 0, native_res);
-            assert_eq!(ffi_scratch.bs.limit, native_scratch.bits.with_bits(|b| b.limit()) as _);
-            assert_eq!(ffi_scratch.bs.pos, native_scratch.bits.position as _);
-            assert_eq!(&ffi_scratch.maindata as &[u8], &native_scratch.bits.maindata as &[u8]);
-            assert_eq!(native_decoder, ffi_decoder);
-            assert_eq!(native_bs.position as i32, ffi_bs.pos);
-            true
-        }
-    }
-
-    quickcheck! {
-        fn test_save_reservoir(decoder: ffi::mp3dec_t, bits: decoder::BitsProxy) -> bool {
-            let mut native_decoder = decoder;
-            let mut ffi_decoder = native_decoder;
-
-            let mut ffi_scratch = unsafe { mem::zeroed() };
-
-            let mut native_scratch = decoder::Scratch::default();
-            native_scratch.bits = bits;
-            native_scratch.convert_to_ffi(&mut ffi_scratch);
-
-            save_reservoir(&mut native_decoder, &mut native_scratch.bits);
-            unsafe { ffi::L3_save_reservoir(&mut ffi_decoder, &mut ffi_scratch) };
-
-            assert_eq!(ffi_scratch.bs.limit, native_scratch.bits.with_bits(|b| b.limit()) as _);
-            assert_eq!(ffi_scratch.bs.pos, native_scratch.bits.position as _);
-            assert_eq!(&ffi_scratch.maindata as &[u8], &native_scratch.bits.maindata as &[u8]);
-            assert_eq!(ffi_decoder, native_decoder);
-            true
-        }
     }
 }

@@ -1,6 +1,5 @@
 use super::ffi;
 
-#[derive(PartialEq, Debug)]
 pub struct Bits<'a> {
     pub data: &'a [u8],
     pub position: usize,
@@ -53,36 +52,5 @@ impl<'a> Bits<'a> {
         }
 
         (cache | (next >> -shl)) as _
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use core::mem;
-    use quickcheck::quickcheck;
-    use std::vec::Vec;
-
-    quickcheck! {
-        fn test_new(data: Vec<u8>) -> bool {
-            let native_bs = Bits::new(&data);
-            unsafe {
-                let mut ffi_bs = mem::zeroed();
-                ffi::bs_init(&mut ffi_bs, data.as_ptr(), data.len() as _);
-                native_bs.bs_copy() == ffi_bs
-            }
-        }
-    }
-
-    quickcheck! {
-        fn test_get_bits(data: Vec<u8>, position: usize, amount: u32) -> bool {
-            let amount = amount % 32; // asking for more than 32
-            // will cause undefined behavior in the c version
-            let mut native_bs = Bits::new_with_pos(&data, position);
-            let mut ffi_bs = unsafe { native_bs.bs_copy() };
-            native_bs.get_bits(amount) == unsafe {
-                ffi::get_bits(&mut ffi_bs, amount as _)
-            } && native_bs.position as i32 == ffi_bs.pos
-        }
     }
 }

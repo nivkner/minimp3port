@@ -1,9 +1,6 @@
 #![no_std]
 #![deny(clippy::all)]
 
-#[cfg(test)]
-extern crate std;
-
 mod bits;
 mod decoder;
 mod ffi;
@@ -191,108 +188,4 @@ pub fn decode_frame(
         bs_frame.position = bs_copy.pos as _;
     }
     success as i32 * header::frame_samples(&decoder.header)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use core::fmt;
-    use quickcheck::{quickcheck, Arbitrary, Gen};
-    use std::vec::Vec;
-
-    impl Arbitrary for ffi::mp3dec_t {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            let mut mp3dec: ffi::mp3dec_t = unsafe { mem::zeroed() };
-            let mdct_overlap: Vec<_> = (0..(288 * 2)).map(|_| f32::arbitrary(g)).collect();
-            mp3dec.mdct_overlap[0].copy_from_slice(&mdct_overlap[..288]);
-            mp3dec.mdct_overlap[1].copy_from_slice(&mdct_overlap[288..]);
-            let qmf_state: Vec<_> = (0..960).map(|_| f32::arbitrary(g)).collect();
-            mp3dec.qmf_state.copy_from_slice(&qmf_state);
-            mp3dec.reserv = libc::c_int::arbitrary(g);
-            mp3dec.free_format_bytes = libc::c_int::arbitrary(g);
-            let header: Vec<_> = (0..4).map(|_| libc::c_uchar::arbitrary(g)).collect();
-            mp3dec.header.copy_from_slice(&header);
-            let reserv_buf: Vec<_> = (0..511).map(|_| libc::c_uchar::arbitrary(g)).collect();
-            mp3dec.reserv_buf.copy_from_slice(&reserv_buf);
-            mp3dec
-        }
-    }
-
-    impl fmt::Debug for ffi::mp3dec_t {
-        fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-            fmt.debug_struct("mp3dec_t")
-                .field(
-                    "mdct_overlap",
-                    &format_args!("{:?}", &self.mdct_overlap[0][..10]),
-                )
-                .field("qmf_state", &format_args!("{:?}", &self.qmf_state[..10]))
-                .field("reserv", &self.reserv)
-                .field("free_format_bytes", &self.free_format_bytes)
-                .field("header", &format_args!("{:?}", &self.header[..]))
-                .finish()
-        }
-    }
-
-    impl PartialEq for ffi::mp3dec_t {
-        fn eq(&self, other: &Self) -> bool {
-            self.mdct_overlap[0].as_ref() == other.mdct_overlap[0].as_ref()
-                && self.mdct_overlap[1].as_ref() == other.mdct_overlap[1].as_ref()
-                && self.qmf_state.as_ref() == other.qmf_state.as_ref()
-                && self.reserv == other.reserv
-                && self.free_format_bytes == other.free_format_bytes
-                && self.header.as_ref() == other.header.as_ref()
-                && self.reserv_buf.as_ref() == other.reserv_buf.as_ref()
-        }
-    }
-
-    impl Arbitrary for ffi::mp3dec_frame_info_t {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            ffi::mp3dec_frame_info_t {
-                frame_bytes: libc::c_int::arbitrary(g),
-                channels: libc::c_int::arbitrary(g),
-                hz: libc::c_int::arbitrary(g),
-                layer: libc::c_int::arbitrary(g),
-                bitrate_kbps: libc::c_int::arbitrary(g),
-            }
-        }
-    }
-
-    impl PartialEq for ffi::bs_t {
-        fn eq(&self, other: &Self) -> bool {
-            let self_slice = unsafe { slice::from_raw_parts(self.buf, (self.limit / 8) as _) };
-            let other_slice = unsafe { slice::from_raw_parts(other.buf, (other.limit / 8) as _) };
-            self_slice == other_slice && self.pos == other.pos && self.limit == other.limit
-        }
-    }
-
-    quickcheck! {
-        fn test_decode_frame(decoder: ffi::mp3dec_t, mp3: Vec<u8>, pcm: Option<()>, info: ffi::mp3dec_frame_info_t) -> bool {
-            let mut native_decoder = decoder;
-            let mut ffi_decoder = decoder;
-            let mut native_pcm = [0; MINIMP3_MAX_SAMPLES_PER_FRAME as usize];
-            let mut ffi_pcm = [0; MINIMP3_MAX_SAMPLES_PER_FRAME as usize];
-            let mut native_info = info;
-            let mut ffi_info = info;
-            let native_res = decode_frame(
-                &mut native_decoder,
-                &mp3,
-                pcm.map(|_| native_pcm.as_mut()),
-                &mut native_info
-                );
-            let ffi_res = unsafe {
-                ffi::mp3dec_decode_frame(
-                    &mut ffi_decoder,
-                    mp3.as_ptr(),
-                    mp3.len() as _,
-                    pcm.map(|_| ffi_pcm.as_mut_ptr())
-                    .unwrap_or_else(ptr::null_mut),
-                    &mut ffi_info
-                    )
-            };
-            native_res == ffi_res &&
-                native_pcm.as_ref() == ffi_pcm.as_ref() &&
-                native_info == ffi_info &&
-                native_decoder == ffi_decoder
-        }
-    }
 }
