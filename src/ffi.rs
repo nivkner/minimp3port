@@ -2,7 +2,7 @@
 #![allow(bad_style)]
 #![allow(clippy::all)]
 
-fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
+pub fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
     let pointee_size = ::core::mem::size_of::<T>();
     assert!(0 < pointee_size && pointee_size <= isize::max_value() as usize);
 
