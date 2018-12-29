@@ -6,9 +6,6 @@ extern crate minimp3port;
 
 use minimp3port::*;
 
-static ILL2_CENTER2_MP3: &[u8] = include_bytes!("../vectors/ILL2_center2.bit");
-static ILL2_CENTER2_PCM: &[u8] = include_bytes!("../vectors/ILL2_center2.pcm");
-
 macro_rules! test_all {
     (
         // Start a repetition:
@@ -257,9 +254,4 @@ fn decode(input_buffer: &[u8], buf: &[u8]) {
         maxdiff,
         psnr
     )
-}
-
-#[test]
-fn ILL2_center2_mp3() {
-    decode(ILL2_CENTER2_MP3, ILL2_CENTER2_PCM);
 }
