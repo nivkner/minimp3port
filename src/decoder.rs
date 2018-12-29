@@ -24,7 +24,7 @@ impl BitsProxy {
     where
         F: FnOnce(&mut Bits) -> T,
     {
-        let mut bits = Bits::new_with_pos(&self.maindata[..self.len], self.position);
+        let mut bits = Bits::new_with_pos(&self.maindata, self.position);
         let res = fun(&mut bits);
         self.position = bits.position;
         res

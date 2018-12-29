@@ -597,8 +597,7 @@ pub fn huffman(
 
     fn check_bits(bs: &Bits, bs_next: &mut usize, bs_sh: &mut i32, bs_cache: &mut u32) {
         while *bs_sh >= 0 {
-            // check that this isn't undefined behavior
-            let byte = u32::from(*bs.data.get(*bs_next).unwrap_or(&0));
+            let byte = u32::from(bs.data[*bs_next]);
             *bs_next += 1;
             *bs_cache |= byte << *bs_sh;
             *bs_sh -= 8
