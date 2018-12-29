@@ -2,6 +2,8 @@
 #![allow(bad_style)]
 #![allow(clippy::all)]
 
+use core::ptr;
+
 pub fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
     let pointee_size = ::core::mem::size_of::<T>();
     assert!(0 < pointee_size && pointee_size <= isize::max_value() as usize);
@@ -10,16 +12,6 @@ pub fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
     d.wrapping_div(pointee_size as _)
 }
 
-use libc;
-extern "C" {
-    #[no_mangle]
-    fn memset(_: *mut libc::c_void, _: libc::c_int, _: libc::c_ulong) -> *mut libc::c_void;
-    #[no_mangle]
-    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: libc::c_ulong) -> *mut libc::c_void;
-    #[no_mangle]
-    fn memmove(_: *mut libc::c_void, _: *const libc::c_void, _: libc::c_ulong)
-        -> *mut libc::c_void;
-}
 pub type __uint8_t = libc::c_uchar;
 pub type __int16_t = libc::c_short;
 pub type __uint16_t = libc::c_ushort;
@@ -183,11 +175,7 @@ pub unsafe fn mp3dec_decode_frame(
         }
     }
     if 0 == frame_size {
-        memset(
-            dec as *mut libc::c_void,
-            0i32,
-            ::core::mem::size_of::<mp3dec_t>() as libc::c_ulong,
-        );
+        ptr::write_bytes(dec, 0, 1);
         i = mp3d_find_frame(
             mp3,
             mp3_bytes,
@@ -200,11 +188,7 @@ pub unsafe fn mp3dec_decode_frame(
         }
     }
     hdr = mp3.offset(i as isize);
-    memcpy(
-        (*dec).header.as_mut_ptr() as *mut libc::c_void,
-        hdr as *const libc::c_void,
-        4i32 as libc::c_ulong,
-    );
+    ptr::copy_nonoverlapping(hdr, (*dec).header.as_mut_ptr(), 4);
     (*info).frame_bytes = i + frame_size;
     (*info).channels = if *hdr.offset(3isize) as libc::c_int & 0xc0i32 == 0xc0i32 {
         1i32
@@ -241,13 +225,7 @@ pub unsafe fn mp3dec_decode_frame(
                             1i32
                         }
                     {
-                        memset(
-                            scratch.grbuf[0usize].as_mut_ptr() as *mut libc::c_void,
-                            0i32,
-                            ((576i32 * 2i32) as libc::c_ulong).wrapping_mul(
-                                ::core::mem::size_of::<libc::c_float>() as libc::c_ulong,
-                            ),
-                        );
+                        ptr::write_bytes(scratch.grbuf[0usize].as_mut_ptr(), 0, 1);
                         L3_decode(
                             dec,
                             &mut scratch,
@@ -281,12 +259,7 @@ pub unsafe fn mp3dec_decode_frame(
                 scfcod: [0; 64],
             }; 1];
             L12_read_scale_info(hdr, bs_frame.as_mut_ptr(), sci.as_mut_ptr());
-            memset(
-                scratch.grbuf[0usize].as_mut_ptr() as *mut libc::c_void,
-                0i32,
-                ((576i32 * 2i32) as libc::c_ulong)
-                    .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
-            );
+            ptr::write_bytes(scratch.grbuf[0usize].as_mut_ptr(), 0, 1);
             i = 0i32;
             igr = 0i32;
             while igr < 3i32 {
@@ -311,12 +284,7 @@ pub unsafe fn mp3dec_decode_frame(
                         pcm,
                         scratch.syn[0usize].as_mut_ptr(),
                     );
-                    memset(
-                        scratch.grbuf[0usize].as_mut_ptr() as *mut libc::c_void,
-                        0i32,
-                        ((576i32 * 2i32) as libc::c_ulong)
-                            .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
-                    );
+                    ptr::write_bytes(scratch.grbuf[0usize].as_mut_ptr(), 0, 1);
                     pcm = pcm.offset((384i32 * (*info).channels) as isize)
                 }
                 if (*bs_frame.as_mut_ptr()).pos > (*bs_frame.as_mut_ptr()).limit {
@@ -354,13 +322,7 @@ pub unsafe fn mp3d_synth_granule(
         mp3d_DCT_II(grbuf.offset((576i32 * i) as isize), nbands);
         i += 1
     }
-    memcpy(
-        lins as *mut libc::c_void,
-        qmf_state as *const libc::c_void,
-        (::core::mem::size_of::<libc::c_float>() as libc::c_ulong)
-            .wrapping_mul(15i32 as libc::c_ulong)
-            .wrapping_mul(64i32 as libc::c_ulong),
-    );
+    ptr::copy_nonoverlapping(qmf_state, lins, 15 * 64);
     i = 0i32;
     while i < nbands {
         mp3d_synth(
@@ -379,13 +341,7 @@ pub unsafe fn mp3d_synth_granule(
         }
     } else {
         /* MINIMP3_NONSTANDARD_BUT_LOGICAL */
-        memcpy(
-            qmf_state as *mut libc::c_void,
-            lins.offset((nbands * 64i32) as isize) as *const libc::c_void,
-            (::core::mem::size_of::<libc::c_float>() as libc::c_ulong)
-                .wrapping_mul(15i32 as libc::c_ulong)
-                .wrapping_mul(64i32 as libc::c_ulong),
-        );
+        ptr::copy_nonoverlapping(lins.offset((nbands * 64i32) as isize), qmf_state, 15 * 64);
     };
 }
 pub unsafe fn mp3d_synth(
@@ -1020,14 +976,12 @@ pub unsafe fn L12_apply_scf_384(
 ) {
     let mut i: libc::c_int = 0;
     let mut k: libc::c_int = 0;
-    memcpy(
+    ptr::copy_nonoverlapping(
+        dst.offset(((*sci).stereo_bands as libc::c_int * 18i32) as isize),
         dst.offset(576isize)
-            .offset(((*sci).stereo_bands as libc::c_int * 18i32) as isize)
-            as *mut libc::c_void,
-        dst.offset(((*sci).stereo_bands as libc::c_int * 18i32) as isize) as *const libc::c_void,
+            .offset(((*sci).stereo_bands as libc::c_int * 18i32) as isize),
         ((((*sci).total_bands as libc::c_int - (*sci).stereo_bands as libc::c_int) * 18i32)
-            as libc::c_ulong)
-            .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
+            as libc::c_ulong) as usize,
     );
     i = 0i32;
     while i < (*sci).total_bands as libc::c_int {
@@ -1593,10 +1547,10 @@ pub unsafe fn L3_save_reservoir(mut h: *mut mp3dec_t, mut s: *mut mp3dec_scratch
         remains = 511i32
     }
     if remains > 0i32 {
-        memmove(
-            (*h).reserv_buf.as_mut_ptr() as *mut libc::c_void,
-            (*s).maindata.as_mut_ptr().offset(pos as isize) as *const libc::c_void,
-            remains as libc::c_ulong,
+        ptr::copy_nonoverlapping(
+            (*s).maindata.as_mut_ptr().offset(pos as isize),
+            (*h).reserv_buf.as_mut_ptr(),
+            remains as usize,
         );
     }
     (*h).reserv = remains;
@@ -1893,17 +1847,8 @@ pub unsafe fn L3_imdct_short(
 ) {
     while nbands > 0i32 {
         let mut tmp: [libc::c_float; 18] = [0.; 18];
-        memcpy(
-            tmp.as_mut_ptr() as *mut libc::c_void,
-            grbuf as *const libc::c_void,
-            ::core::mem::size_of::<[libc::c_float; 18]>() as libc::c_ulong,
-        );
-        memcpy(
-            grbuf as *mut libc::c_void,
-            overlap as *const libc::c_void,
-            (6i32 as libc::c_ulong)
-                .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
-        );
+        ptr::copy_nonoverlapping(grbuf, tmp.as_mut_ptr(), 18);
+        ptr::copy_nonoverlapping(overlap, grbuf, 6);
         L3_imdct12(
             tmp.as_mut_ptr(),
             grbuf.offset(6isize),
@@ -2049,12 +1994,7 @@ pub unsafe fn L3_reorder(
         sfb = sfb.offset(3isize);
         src = src.offset((2i32 * len) as isize)
     }
-    memcpy(
-        grbuf as *mut libc::c_void,
-        scratch as *const libc::c_void,
-        (wrapping_offset_from(dst, scratch) as libc::c_long as libc::c_ulong)
-            .wrapping_mul(::core::mem::size_of::<libc::c_float>() as libc::c_ulong),
-    );
+    ptr::copy_nonoverlapping(scratch, grbuf, wrapping_offset_from(dst, scratch) as usize);
 }
 pub unsafe fn L3_midside_stereo(mut left: *mut libc::c_float, mut n: libc::c_int) {
     let mut i: libc::c_int = 0i32;
@@ -5179,16 +5119,12 @@ pub unsafe fn L3_read_scalefactors(
     while i < 4i32 && 0 != *scf_count.offset(i as isize) as libc::c_int {
         let mut cnt: libc::c_int = *scf_count.offset(i as isize) as libc::c_int;
         if 0 != scfsi & 8i32 {
-            memcpy(
-                scf as *mut libc::c_void,
-                ist_pos as *const libc::c_void,
-                cnt as libc::c_ulong,
-            );
+            ptr::copy_nonoverlapping(ist_pos, scf, cnt as usize);
         } else {
             let mut bits: libc::c_int = *scf_size.offset(i as isize) as libc::c_int;
             if 0 == bits {
-                memset(scf as *mut libc::c_void, 0i32, cnt as libc::c_ulong);
-                memset(ist_pos as *mut libc::c_void, 0i32, cnt as libc::c_ulong);
+                ptr::write_bytes(scf, 0, 1);
+                ptr::write_bytes(ist_pos, 0, 1);
             } else {
                 let mut max_scf: libc::c_int = if scfsi < 0i32 {
                     (1i32 << bits) - 1i32
@@ -6219,25 +6155,25 @@ pub unsafe fn L3_restore_reservoir(
     } else {
         (*h).reserv
     };
-    memcpy(
-        (*s).maindata.as_mut_ptr() as *mut libc::c_void,
+    ptr::copy_nonoverlapping(
         (*h).reserv_buf.as_mut_ptr().offset(
             (if 0i32 < (*h).reserv - main_data_begin {
                 (*h).reserv - main_data_begin
             } else {
                 0i32
             }) as isize,
-        ) as *const libc::c_void,
+        ),
+        (*s).maindata.as_mut_ptr(),
         (if (*h).reserv > main_data_begin {
             main_data_begin
         } else {
             (*h).reserv
-        }) as libc::c_ulong,
+        }) as usize,
     );
-    memcpy(
-        (*s).maindata.as_mut_ptr().offset(bytes_have as isize) as *mut libc::c_void,
-        (*bs).buf.offset(((*bs).pos / 8i32) as isize) as *const libc::c_void,
-        frame_bytes as libc::c_ulong,
+    ptr::copy_nonoverlapping(
+        (*bs).buf.offset(((*bs).pos / 8i32) as isize),
+        (*s).maindata.as_mut_ptr().offset(bytes_have as isize),
+        frame_bytes as usize,
     );
     bs_init(
         &mut (*s).bs,
