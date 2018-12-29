@@ -10,6 +10,4 @@ style:
 substance:
   stage: test
   script:
-    - cargo build
-    - mv target/debug/minimp3 minimp3
-    - sh scripts/test.sh
+    - cargo test

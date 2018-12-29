@@ -1,19 +1,114 @@
 #![allow(bad_style)]
 #![allow(clippy::all)]
 
+extern crate libc;
 extern crate minimp3port;
 
 use minimp3port::*;
 
-extern crate libc;
-/*
-    https://github.com/lieff/minimp3
-    To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights to this software to the public domain worldwide.
-    This software is distributed without any warranty.
-    See <http://creativecommons.org/publicdomain/zero/1.0/>.
-*/
-#[derive(Clone)]
-#[repr(C)]
+static ILL2_CENTER2_MP3: &[u8] = include_bytes!("../vectors/ILL2_center2.bit");
+static ILL2_CENTER2_PCM: &[u8] = include_bytes!("../vectors/ILL2_center2.pcm");
+
+macro_rules! test_all {
+    (
+        // Start a repetition:
+        $(
+            // each repeat has the name of te module and the name of the files without extentions
+            $element:ident: $string:expr
+        )
+        // ...separated by commas...
+        ,
+        // ...zero or more times.
+        *
+    ) => {
+        $(
+        mod $element {
+            static MP3: &[u8] = include_bytes!(concat!("../vectors/", $string, ".bit"));
+            static PCM: &[u8] = include_bytes!(concat!("../vectors/", $string, ".pcm"));
+
+            #[test]
+            fn test() {
+                super::decode(MP3, PCM);
+            }
+        }
+        )*
+    };
+}
+
+test_all![
+    ILL2_center2: "ILL2_center2",
+    ILL2_dual: "ILL2_dual",
+    ILL2_dynx22: "ILL2_dynx22",
+    ILL2_dynx31: "ILL2_dynx31",
+    ILL2_dynx32: "ILL2_dynx32",
+    ILL2_ext_switching: "ILL2_ext_switching",
+    ILL2_layer1: "ILL2_layer1",
+    ILL2_layer3: "ILL2_layer3",
+    ILL2_mono: "ILL2_mono",
+    ILL2_multilingual: "ILL2_multilingual",
+    ILL2_overalloc1: "ILL2_overalloc1",
+    ILL2_overalloc2: "ILL2_overalloc2",
+    ILL2_prediction: "ILL2_prediction",
+    ILL2_samples: "ILL2_samples",
+    ILL2_scf63: "ILL2_scf63",
+    ILL2_tca21: "ILL2_tca21",
+    ILL2_tca30: "ILL2_tca30",
+    ILL2_tca30_PC: "ILL2_tca30_PC",
+    ILL2_tca31_PC: "ILL2_tca31_PC",
+    ILL2_tca31_mtx0: "ILL2_tca31_mtx0",
+    ILL2_tca31_mtx2: "ILL2_tca31_mtx2",
+    ILL2_tca32_PC: "ILL2_tca32_PC",
+    ILL2_wrongcrc: "ILL2_wrongcrc",
+    ILL4_ext_id1: "ILL4_ext_id1",
+    ILL4_sync: "ILL4_sync",
+    ILL4_wrong_length1: "ILL4_wrong_length1",
+    ILL4_wrong_length2: "ILL4_wrong_length2",
+    ILL4_wrongcrc: "ILL4_wrongcrc",
+    M2L3_bitrate_16_all: "M2L3_bitrate_16_all",
+    M2L3_bitrate_22_all: "M2L3_bitrate_22_all",
+    M2L3_bitrate_24_all: "M2L3_bitrate_24_all",
+    M2L3_compl24: "M2L3_compl24",
+    M2L3_noise: "M2L3_noise",
+    l1_fl1: "l1-fl1",
+    l1_fl2: "l1-fl2",
+    l1_fl3: "l1-fl3",
+    l1_fl4: "l1-fl4",
+    l1_fl5: "l1-fl5",
+    l1_fl6: "l1-fl6",
+    l1_fl7: "l1-fl7",
+    l1_fl8: "l1-fl8",
+    l2_fl10: "l2-fl10",
+    l2_fl11: "l2-fl11",
+    l2_fl12: "l2-fl12",
+    l2_fl13: "l2-fl13",
+    l2_fl14: "l2-fl14",
+    l2_fl15: "l2-fl15",
+    l2_fl16: "l2-fl16",
+    l2_nonstandard_fl1_fl2_ff: "l2-nonstandard-fl1_fl2_ff",
+    l2_nonstandard_free_format: "l2-nonstandard-free_format",
+    l2_nonstandard_test32_size: "l2-nonstandard-test32-size",
+    l2_test32: "l2-test32",
+    l3_compl: "l3-compl",
+    l3_he_32khz: "l3-he_32khz",
+    l3_he_44khz: "l3-he_44khz",
+    l3_he_48khz: "l3-he_48khz",
+    l3_he_free: "l3-he_free",
+    l3_he_mode: "l3-he_mode",
+    l3_hecommon: "l3-hecommon",
+    l3_id3v2: "l3-id3v2",
+    l3_nonstandard_big_iscf: "l3-nonstandard-big-iscf",
+    l3_nonstandard_compl_sideinfo_bigvalues: "l3-nonstandard-compl-sideinfo-bigvalues",
+    l3_nonstandard_compl_sideinfo_blocktype: "l3-nonstandard-compl-sideinfo-blocktype",
+    l3_nonstandard_compl_sideinfo_size: "l3-nonstandard-compl-sideinfo-size",
+    l3_nonstandard_sideinfo_size: "l3-nonstandard-sideinfo-size",
+    l3_si: "l3-si",
+    l3_si_block: "l3-si_block",
+    l3_si_huff: "l3-si_huff",
+    l3_sin1k0db: "l3-sin1k0db",
+    l3_test45: "l3-test45",
+    l3_test46: "l3-test46"
+];
+
 pub struct mp3dec_file_info_t {
     pub buffer: Vec<i16>,
     pub samples: libc::size_t,
@@ -154,18 +249,17 @@ fn decode(input_buffer: &[u8], buf: &[u8]) {
     } else {
         10.0 * (0x7fffu32.pow(2) as f64 / MSE).log10()
     };
-    println!(
-        "rate={} samples={} max_diff={} PSNR={}",
-        info.hz, total_samples, maxdiff, psnr
-    );
-    assert!(psnr > 96.0, "PSNR compliance failed")
+    assert!(
+        psnr > 96.0,
+        "PSNR compliance failed: rate={} samples={} max_diff={} PSNR={}",
+        info.hz,
+        total_samples,
+        maxdiff,
+        psnr
+    )
 }
 
-pub fn main() {
-    let rinput = std::env::args().nth(1).unwrap();
-    let rinput_buf = std::fs::read(rinput).unwrap();
-    let rref = std::env::args().nth(2).unwrap();
-    let rref_buf = std::fs::read(rref).unwrap();
-
-    decode(&rinput_buf, &rref_buf);
+#[test]
+fn ILL2_center2_mp3() {
+    decode(ILL2_CENTER2_MP3, ILL2_CENTER2_PCM);
 }
