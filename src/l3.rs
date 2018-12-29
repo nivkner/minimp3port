@@ -409,7 +409,7 @@ pub unsafe fn decode(
                 scratch.grbuf[channel]
                     .as_mut_ptr()
                     .offset((n_long_bands * 18) as isize),
-                scratch.syn[0].as_mut_ptr(),
+                scratch.syn.as_mut_ptr(),
                 gr_info.sfbtab.offset(gr_info.n_long_sfb as isize),
             );
         }

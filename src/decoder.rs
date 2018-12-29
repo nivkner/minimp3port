@@ -1,5 +1,5 @@
 use crate::bits::Bits;
-use crate::header;
+use crate::{ffi, header};
 use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
 #[derive(Copy, Clone)]
@@ -7,7 +7,7 @@ pub struct Scratch {
     pub bits: BitsProxy,
     pub grbuf: [[f32; 576]; 2],
     pub scf: [f32; 40],
-    pub syn: [[f32; 64]; 33],
+    pub syn: [f32; 64 * 33],
     pub ist_pos: [[u8; 39]; 2],
 }
 
@@ -47,7 +47,7 @@ impl Default for Scratch {
             bits: BitsProxy::default(),
             grbuf: [[0.0; 576]; 2],
             scf: [0.0; 40],
-            syn: [[0.0; 64]; 33],
+            syn: [0.0; 64 * 33],
             ist_pos: [[0; 39]; 2],
         }
     }
@@ -109,4 +109,40 @@ pub fn match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
         }
     }
     true
+}
+
+pub fn synth_granule(
+    qmf_state: &mut [f32],
+    grbuf: &mut [f32],
+    nbands: usize,
+    nch: usize,
+    pcm: &mut [i16],
+    lins: &mut [f32],
+) {
+    for i in 0..nch {
+        unsafe { ffi::mp3d_DCT_II(grbuf.as_mut_ptr().add(576 * i), nbands as _) };
+    }
+    lins[..(15 * 64)].copy_from_slice(&qmf_state[..(15 * 64)]);
+    for i in (0..nbands).step_by(2) {
+        unsafe {
+            ffi::mp3d_synth(
+                grbuf.as_mut_ptr().add(i),
+                pcm.as_mut_ptr().add(32 * nch * i),
+                nch as _,
+                lins.as_mut_ptr().add(i * 64),
+            )
+        }
+    }
+    if nch == 1 {
+        for (qmf, lin) in qmf_state
+            .iter_mut()
+            .zip(lins.iter().skip(nbands * 64))
+            .take(15 * 64)
+            .step_by(2)
+        {
+            *qmf = *lin;
+        }
+    } else {
+        qmf_state[..(15 * 64)].copy_from_slice(&lins[(nbands * 64)..(nbands * 64 + 15 * 64)]);
+    };
 }

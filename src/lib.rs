@@ -129,13 +129,13 @@ pub fn decode_frame(
                         &gr_info[((igr * info.channels) as _)..],
                         info.channels as _,
                     );
-                    ffi::mp3d_synth_granule(
-                        decoder.qmf_state.as_mut_ptr(),
-                        scratch.grbuf[0].as_mut_ptr(),
+                    decoder::synth_granule(
+                        &mut decoder.qmf_state,
+                        &mut scratch.grbuf[0],
                         18,
-                        info.channels,
-                        pcm_view[pcm_pos..].as_mut_ptr(),
-                        scratch.syn[0].as_mut_ptr(),
+                        info.channels as usize,
+                        &mut pcm_view[pcm_pos..],
+                        &mut scratch.syn,
                     );
                 };
                 pcm_pos += 576 * info.channels as usize;
@@ -168,13 +168,13 @@ pub fn decode_frame(
                         sci.scf[(igr as _)..].as_mut_ptr(),
                         scratch.grbuf[0].as_mut_ptr(),
                     );
-                    ffi::mp3d_synth_granule(
-                        decoder.qmf_state.as_mut_ptr(),
-                        scratch.grbuf[0].as_mut_ptr(),
+                    decoder::synth_granule(
+                        &mut decoder.qmf_state,
+                        &mut scratch.grbuf[0],
                         12,
-                        info.channels,
-                        pcm_view[pcm_pos..].as_mut_ptr(),
-                        scratch.syn[0].as_mut_ptr(),
+                        info.channels as usize,
+                        &mut pcm_view[pcm_pos..],
+                        &mut scratch.syn,
                     );
                     ptr::write_bytes(&mut scratch.grbuf, 0, 1);
                 }
