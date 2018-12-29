@@ -131,7 +131,7 @@ pub fn decode_frame(
                     );
                     decoder::synth_granule(
                         &mut decoder.qmf_state,
-                        &mut scratch.grbuf[0],
+                        &mut scratch.grbuf,
                         18,
                         info.channels as usize,
                         &mut pcm_view[pcm_pos..],
@@ -154,7 +154,7 @@ pub fn decode_frame(
         for igr in 0..3 {
             unsafe {
                 i += ffi::L12_dequantize_granule(
-                    scratch.grbuf[0][(i as _)..].as_mut_ptr(),
+                    scratch.grbuf[(i as _)..].as_mut_ptr(),
                     &mut bs_copy,
                     &mut sci,
                     info.layer | 1,
@@ -166,11 +166,11 @@ pub fn decode_frame(
                     ffi::L12_apply_scf_384(
                         &mut sci,
                         sci.scf[(igr as _)..].as_mut_ptr(),
-                        scratch.grbuf[0].as_mut_ptr(),
+                        scratch.grbuf.as_mut_ptr(),
                     );
                     decoder::synth_granule(
                         &mut decoder.qmf_state,
-                        &mut scratch.grbuf[0],
+                        &mut scratch.grbuf,
                         12,
                         info.channels as usize,
                         &mut pcm_view[pcm_pos..],

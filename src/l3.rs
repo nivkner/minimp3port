@@ -383,19 +383,25 @@ pub unsafe fn decode(
                 scf,
                 channel as _,
             );
-            huffman(&mut grbuf[channel], &mut bs, info, scf, layer3gr_limit);
+            huffman(
+                &mut grbuf[(channel * 576)..],
+                &mut bs,
+                info,
+                scf,
+                layer3gr_limit,
+            );
         });
     }
 
     if header::test_1_stereo(&decoder.header) {
         ffi::L3_intensity_stereo(
-            scratch.grbuf[0].as_mut_ptr(),
+            scratch.grbuf.as_mut_ptr(),
             scratch.ist_pos[1].as_mut_ptr(),
             gr_info.as_ptr(),
             decoder.header.as_ptr(),
         );
     } else if header::is_ms_stereo(&decoder.header) {
-        ffi::L3_midside_stereo(scratch.grbuf[0].as_mut_ptr(), 576);
+        ffi::L3_midside_stereo(scratch.grbuf.as_mut_ptr(), 576);
     }
 
     for channel in 0..channel_num {
@@ -406,21 +412,21 @@ pub unsafe fn decode(
         if 0 != gr_info.n_short_sfb {
             aa_bands = n_long_bands - 1;
             ffi::L3_reorder(
-                scratch.grbuf[channel]
+                scratch.grbuf[(channel * 576)..]
                     .as_mut_ptr()
                     .offset((n_long_bands * 18) as isize),
                 scratch.syn.as_mut_ptr(),
                 gr_info.sfbtab.offset(gr_info.n_long_sfb as isize),
             );
         }
-        ffi::L3_antialias(scratch.grbuf[channel].as_mut_ptr(), aa_bands);
+        ffi::L3_antialias(scratch.grbuf[(channel * 576)..].as_mut_ptr(), aa_bands);
         ffi::L3_imdct_gr(
-            scratch.grbuf[channel].as_mut_ptr(),
+            scratch.grbuf[(channel * 576)..].as_mut_ptr(),
             decoder.mdct_overlap[channel].as_mut_ptr(),
             gr_info.block_type.into(),
             n_long_bands as u32,
         );
-        ffi::L3_change_sign(scratch.grbuf[channel].as_mut_ptr());
+        ffi::L3_change_sign(scratch.grbuf[(channel * 576)..].as_mut_ptr());
     }
 }
 
