@@ -4,6 +4,7 @@
 extern crate libc;
 extern crate minimp3port;
 
+use byteorder::ByteOrder;
 use minimp3port::*;
 
 macro_rules! test_all {
@@ -106,13 +107,12 @@ test_all![
     l3_test46: "l3-test46"
 ];
 
-pub struct mp3dec_file_info_t {
-    pub buffer: Vec<i16>,
-    pub samples: libc::size_t,
-    pub channels: libc::c_int,
-    pub hz: libc::c_int,
-    pub layer: libc::c_int,
-    pub avg_bitrate_kbps: libc::c_int,
+struct mp3dec_file_info_t {
+    samples: libc::size_t,
+    channels: libc::c_int,
+    hz: libc::c_int,
+    layer: libc::c_int,
+    avg_bitrate_kbps: libc::c_int,
 }
 
 /* decode whole buffer block */
@@ -120,7 +120,7 @@ fn load_buffer(
     dec: &mut mp3dec_t,
     buf: &[u8],
     info: &mut mp3dec_file_info_t,
-    ref_buffer: &[u8],
+    ref_buffer: &[i16],
 ) -> (f64, i32) {
     let mut pcm: [mp3d_sample_t; 2304] = [0; 2304];
     let mut frame_info: mp3dec_frame_info_t = mp3dec_frame_info_t {
@@ -161,7 +161,7 @@ fn load_buffer(
     /* decode rest frames */
     let mut total = samples as usize;
     if !ref_buffer.is_empty() {
-        let (m, diff) = mse(total, &pcm[..(samples as usize)], &ref_buffer);
+        let (m, diff) = mse(total, &pcm[..(samples as usize)], ref_buffer);
         MSE += m;
         if diff > maxdiff {
             maxdiff = diff;
@@ -172,8 +172,8 @@ fn load_buffer(
         let all_samples = samples as usize * frame_info.channels as usize;
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
 
-        let ref_slice = if total * 2 < ref_buffer.len() {
-            &ref_buffer[(total * 2)..]
+        let ref_slice = if total < ref_buffer.len() {
+            &ref_buffer[total..]
         } else {
             &[]
         };
@@ -218,20 +218,13 @@ fn mp3dec_skip_id3v2(buf: &[u8]) -> usize {
     };
 }
 
-fn read_i16(buffer: &[u8], index: usize) -> i16 {
-    const SIZE: usize = std::mem::size_of::<i16>();
-    let mut bytes: [u8; SIZE] = [0u8; SIZE];
-    bytes.copy_from_slice(&buffer[(index * SIZE)..(index * SIZE + SIZE)]);
-    unsafe { i16::from_le(std::mem::transmute(bytes)) }
-}
-
-fn mse(samples: usize, frame_buf: &[i16], buf_ref: &[u8]) -> (f64, i32) {
+fn mse(samples: usize, frame_buf: &[i16], buf_ref: &[i16]) -> (f64, i32) {
     let mut MSE = 0.0;
     let mut maxdiff = 0;
     if 0 != samples {
         let max_samples = std::cmp::min(buf_ref.len() / 2, samples as usize);
         for i in 0..max_samples {
-            let ref_res = read_i16(buf_ref, i);
+            let ref_res = buf_ref[i];
             let info_res = frame_buf[i as usize];
             let diff = (ref_res - info_res).abs();
             if diff as i32 > maxdiff {
@@ -253,14 +246,16 @@ fn decode(input_buffer: &[u8], buf: &[u8]) {
         reserv_buf: [0; 511],
     };
     let mut info: mp3dec_file_info_t = mp3dec_file_info_t {
-        buffer: Vec::new(),
         samples: 0,
         channels: 0,
         hz: 0,
         layer: 0,
         avg_bitrate_kbps: 0,
     };
-    let (mut MSE, maxdiff) = load_buffer(&mut mp3d, input_buffer, &mut info, buf);
+    let mut vec_ref: Vec<i16> = Vec::with_capacity(buf.len() / 2);
+    unsafe { vec_ref.set_len(buf.len() / 2) };
+    byteorder::LittleEndian::read_i16_into(buf, &mut vec_ref);
+    let (mut MSE, maxdiff) = load_buffer(&mut mp3d, input_buffer, &mut info, &vec_ref);
     MSE /= if 0 != info.samples {
         info.samples as f64
     } else {
