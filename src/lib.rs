@@ -9,40 +9,12 @@ mod l3;
 
 use core::mem;
 use core::ptr;
-use core::slice;
 
 use crate::bits::Bits;
-pub use crate::ffi::{
-    hdr_bitrate_kbps, hdr_sample_rate_hz, mp3d_find_frame, mp3d_sample_t, mp3dec_frame_info_t,
-    mp3dec_init, mp3dec_t,
-};
+pub use crate::ffi::{mp3dec_frame_info_t, mp3dec_init, mp3dec_t};
 
 fn decoder_init(dec: &mut ffi::mp3dec_t) {
     dec.header[0] = 0
-}
-
-pub unsafe fn mp3dec_decode_frame(
-    dec: *mut ffi::mp3dec_t,
-    mp3: *const u8,
-    mp3_bytes: libc::c_int,
-    pcm: *mut ffi::mp3d_sample_t,
-    info: *mut ffi::mp3dec_frame_info_t,
-) -> libc::c_int {
-    let mp3 = slice::from_raw_parts(mp3, mp3_bytes as _);
-    let pcm_slice = if pcm.is_null() {
-        None
-    } else {
-        Some(slice::from_raw_parts_mut(
-            pcm,
-            MINIMP3_MAX_SAMPLES_PER_FRAME as _,
-        ))
-    };
-    decode_frame(
-        dec.as_mut().unwrap(),
-        mp3,
-        pcm_slice,
-        info.as_mut().unwrap(),
-    )
 }
 
 pub const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;

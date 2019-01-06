@@ -122,7 +122,7 @@ fn load_buffer(
     info: &mut mp3dec_file_info_t,
     ref_buffer: &[i16],
 ) -> (f64, i32) {
-    let mut pcm: [mp3d_sample_t; 2304] = [0; 2304];
+    let mut pcm: [i16; 2304] = [0; 2304];
     let mut frame_info: mp3dec_frame_info_t = mp3dec_frame_info_t {
         frame_bytes: 0,
         channels: 0,
