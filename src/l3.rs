@@ -266,7 +266,7 @@ pub fn decode_scalefactors(
     hdr: &[u8],
     ist_pos: &mut [u8],
     bs: &mut Bits,
-    gr: &ffi::L3_gr_info_t,
+    gr: &GrInfo,
     scf: &mut [f32],
     ch: i32,
 ) {
@@ -283,9 +283,13 @@ pub fn decode_scalefactors(
             9, 0,
         ],
     ];
-    // 0 == long, 1 == mixed, 2 == short
-    let scf_partition: &[u8] =
-        &g_scf_partitions[(0 != gr.n_short_sfb) as usize + (0 == gr.n_long_sfb) as usize];
+
+    let scf_partition = match gr.sfb_table {
+        Some(SFBTable::Long(_)) | None => &g_scf_partitions[0],
+        Some(SFBTable::Mixed(..)) => &g_scf_partitions[1],
+        Some(SFBTable::Short(_)) => &g_scf_partitions[2],
+    };
+
     let mut iscf: [u8; 40] = [0; 40];
     let mut bs_copy = unsafe { bs.bs_copy() };
     if header::test_mpeg1(hdr) {
@@ -333,27 +337,41 @@ pub fn decode_scalefactors(
     bs.position = bs_copy.pos as _;
 
     let scf_shift: i32 = i32::from(gr.scalefac_scale) + 1;
-    // is Long
-    if 0 != gr.n_short_sfb {
-        let sh = 3 - scf_shift as u8;
-        for i in (0..gr.n_short_sfb).step_by(3) {
-            let step = (gr.n_long_sfb + i) as usize;
-            iscf[step] += gr.subblock_gain[0] << sh;
-            iscf[step + 1] += gr.subblock_gain[1] << sh;
-            iscf[step + 2] += gr.subblock_gain[2] << sh;
+    let sfb_length = match gr.sfb_table {
+        Some(SFBTable::Long(_)) | None => {
+            if gr.preflag {
+                let g_preamp: [u8; 10] = [1, 1, 1, 1, 2, 2, 3, 3, 3, 2];
+                for (iscf, preamp) in iscf.iter_mut().skip(11).zip(g_preamp.iter()) {
+                    *iscf += preamp
+                }
+            }
+            22
         }
-    } else if 0 != gr.preflag {
-        let g_preamp: [u8; 10] = [1, 1, 1, 1, 2, 2, 3, 3, 3, 2];
-        for (iscf, preamp) in iscf.iter_mut().skip(11).zip(g_preamp.iter()) {
-            *iscf += preamp
+        Some(SFBTable::Mixed(_, extra)) => {
+            let sh = 3 - scf_shift as u8;
+            for iscf in iscf[(extra as usize)..].chunks_mut(3).take(30 / 3) {
+                iscf[0] += gr.subblock_gain[0] << sh;
+                iscf[1] += gr.subblock_gain[1] << sh;
+                iscf[2] += gr.subblock_gain[2] << sh;
+            }
+            30 + extra as usize
         }
-    }
+        Some(SFBTable::Short(_)) => {
+            let sh = 3 - scf_shift as u8;
+            for iscf in iscf.chunks_mut(3).take(39 / 3) {
+                iscf[0] += gr.subblock_gain[0] << sh;
+                iscf[1] += gr.subblock_gain[1] << sh;
+                iscf[2] += gr.subblock_gain[2] << sh;
+            }
+            39
+        }
+    };
     let gain_exp = i32::from(gr.global_gain) + BITS_DEQUANTIZER_OUT * 4
         - 210
         - if header::is_ms_stereo(hdr) { 2 } else { 0 };
     let gain = unsafe { ffi::L3_ldexp_q2((1 << (MAX_SCFI / 4)) as f32, MAX_SCFI - gain_exp) };
     // the length of the scalefactor band, whichever type it is
-    for i in 0..(gr.n_long_sfb as usize + gr.n_short_sfb as usize) {
+    for i in 0..sfb_length {
         scf[i] = unsafe { ffi::L3_ldexp_q2(gain, i32::from(iscf[i]) << scf_shift) };
     }
 }
@@ -364,12 +382,7 @@ pub unsafe fn decode(
     native_gr_info: &[GrInfo],
     channel_num: usize,
 ) {
-    let mut gr_info: [ffi::L3_gr_info_t; 4] = mem::zeroed();
-    for (native, ffi) in native_gr_info.iter().zip(&mut gr_info) {
-        native.apply_to_ffi(ffi);
-    }
-    let gr_info = &gr_info[..native_gr_info.len()];
-    for (channel, info) in gr_info.iter().enumerate().take(channel_num) {
+    for (channel, info) in native_gr_info.iter().enumerate().take(channel_num) {
         let ist_pos = &mut scratch.ist_pos;
         let scf = &mut scratch.scf;
         let grbuf = &mut scratch.grbuf;
@@ -394,6 +407,11 @@ pub unsafe fn decode(
     }
 
     if header::test_1_stereo(&decoder.header) {
+        let mut gr_info: [ffi::L3_gr_info_t; 4] = mem::zeroed();
+        for (native, ffi) in native_gr_info.iter().zip(&mut gr_info) {
+            native.apply_to_ffi(ffi);
+        }
+        let gr_info = &gr_info[..native_gr_info.len()];
         ffi::L3_intensity_stereo(
             scratch.grbuf.as_mut_ptr(),
             scratch.ist_pos[1].as_mut_ptr(),
@@ -404,20 +422,35 @@ pub unsafe fn decode(
         ffi::L3_midside_stereo(scratch.grbuf.as_mut_ptr(), 576);
     }
 
-    for channel in 0..channel_num {
-        let gr_info = gr_info[channel];
+    for (channel, gr_info) in native_gr_info.iter().enumerate().take(channel_num) {
         let mut aa_bands = 31;
-        let n_long_bands = if 0 != gr_info.mixed_block_flag { 2 } else { 0 }
-            << (header::get_my_sample_rate(&decoder.header) == 2) as i32;
-        if 0 != gr_info.n_short_sfb {
-            aa_bands = n_long_bands - 1;
-            ffi::L3_reorder(
-                scratch.grbuf[(channel * 576)..]
-                    .as_mut_ptr()
-                    .offset((n_long_bands * 18) as isize),
-                scratch.syn.as_mut_ptr(),
-                gr_info.sfbtab.offset(gr_info.n_long_sfb as isize),
-            );
+        let n_long_bands = if gr_info.mixed_block {
+            2 << (header::get_my_sample_rate(&decoder.header) == 2) as usize
+        } else {
+            0
+        };
+        match gr_info.sfb_table {
+            Some(SFBTable::Short(table)) => {
+                aa_bands = n_long_bands - 1;
+                ffi::L3_reorder(
+                    scratch.grbuf[(channel * 576)..]
+                        .as_mut_ptr()
+                        .offset((n_long_bands * 18) as isize),
+                    scratch.syn.as_mut_ptr(),
+                    table.as_ptr(),
+                );
+            }
+            Some(SFBTable::Mixed(table, extra)) => {
+                aa_bands = n_long_bands - 1;
+                ffi::L3_reorder(
+                    scratch.grbuf[(channel * 576)..]
+                        .as_mut_ptr()
+                        .offset((n_long_bands * 18) as isize),
+                    scratch.syn.as_mut_ptr(),
+                    table[(extra as usize)..].as_ptr(),
+                );
+            }
+            _ => (),
         }
         ffi::L3_antialias(scratch.grbuf[(channel * 576)..].as_mut_ptr(), aa_bands);
         ffi::L3_imdct_gr(
@@ -433,7 +466,7 @@ pub unsafe fn decode(
 pub fn huffman(
     dst: &mut [f32],
     bits: &mut Bits,
-    gr_info: &ffi::L3_gr_info_t,
+    gr_info: &GrInfo,
     scf: &[f32],
     layer3gr_limit: i32,
 ) {
@@ -626,6 +659,12 @@ pub fn huffman(
     let mut bs_sh = (bits.position as i32 & 7) - 8;
     bs_next += 4;
     let mut dst_pos = 0;
+    let table = match gr_info.sfb_table {
+        Some(SFBTable::Long(tab)) => tab,
+        Some(SFBTable::Short(tab)) => tab,
+        Some(SFBTable::Mixed(tab, _)) => tab,
+        None => &[],
+    };
     while big_val_cnt > 0 {
         let tab_num = gr_info.table_select[ireg] as usize;
         let mut sfb_cnt: i32 = gr_info.region_count[ireg].into();
@@ -633,7 +672,7 @@ pub fn huffman(
         let codebook = &tabs[tabindex[tab_num]..];
         let linbits: i32 = g_linbits[tab_num].into();
         loop {
-            let np: i32 = unsafe { *gr_info.sfbtab.offset(sfb) / 2 }.into();
+            let np: i32 = (table[sfb as usize] / 2).into();
             sfb += 1;
             let mut pairs_to_decode = cmp::min(big_val_cnt, np);
             one = scf[scf_next];
@@ -696,7 +735,7 @@ pub fn huffman(
     let mut reload_scalefactor = |one: &mut f32| {
         np -= 1;
         if 0 == np {
-            let sfbtab = unsafe { *gr_info.sfbtab.offset(sfb) };
+            let sfbtab = table[sfb as usize];
             sfb += 1;
             np = (sfbtab / 2).into();
             if 0 == np {
