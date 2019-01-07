@@ -1,5 +1,4 @@
 use core::cmp;
-use core::mem;
 
 use crate::bits::Bits;
 use crate::{decoder, ffi, header};
@@ -7,6 +6,8 @@ use crate::{BITS_DEQUANTIZER_OUT, MAX_BITRESERVOIR_BYTES, MAX_SCFI, SHORT_BLOCK_
 
 #[derive(Copy, Clone, Default)]
 pub struct GrInfo {
+    // when the table is None, it corresponds to n_long_sfb == 0,
+    // and n_short_sfb == 0
     pub sfb_table: Option<SFBTable>,
     pub part_23_length: u16,
     pub big_values: u16,
@@ -33,45 +34,6 @@ pub enum SFBTable {
     // corresponds to n_short_sfb == 30
     // with the extra number as n_long_sfb
     Mixed(&'static [u8], u8),
-}
-
-impl GrInfo {
-    pub fn apply_to_ffi(&self, gr: &mut ffi::L3_gr_info_t) {
-        match self.sfb_table {
-            Some(SFBTable::Long(slice)) => {
-                gr.sfbtab = slice.as_ptr();
-                gr.n_long_sfb = 22;
-                gr.n_short_sfb = 0;
-            }
-            Some(SFBTable::Short(slice)) => {
-                gr.sfbtab = slice.as_ptr();
-                gr.n_long_sfb = 0;
-                gr.n_short_sfb = 39;
-            }
-            Some(SFBTable::Mixed(slice, extra)) => {
-                gr.sfbtab = slice.as_ptr();
-                gr.n_long_sfb = extra;
-                gr.n_short_sfb = 30;
-            }
-            None => {
-                gr.n_long_sfb = 0;
-                gr.n_short_sfb = 0;
-            }
-        }
-        gr.mixed_block_flag = self.mixed_block as u8;
-        gr.block_type = self.block_type;
-        gr.part_23_length = self.part_23_length;
-        gr.big_values = self.big_values;
-        gr.scalefac_compress = self.scalefac_compress;
-        gr.global_gain = self.global_gain;
-        gr.table_select = self.table_select;
-        gr.region_count = self.region_count;
-        gr.subblock_gain = self.subblock_gain;
-        gr.preflag = self.preflag as u8;
-        gr.scalefac_scale = self.scalefac_scale;
-        gr.count1_table = self.count1_table;
-        gr.scfsi = self.scfsi;
-    }
 }
 
 #[rustfmt::skip]
@@ -422,16 +384,12 @@ pub unsafe fn decode(
     }
 
     if header::test_1_stereo(&decoder.header) {
-        let mut gr_info: [ffi::L3_gr_info_t; 4] = mem::zeroed();
-        for (native, ffi) in native_gr_info.iter().zip(&mut gr_info) {
-            native.apply_to_ffi(ffi);
-        }
-        let gr_info = &gr_info[..native_gr_info.len()];
-        ffi::L3_intensity_stereo(
-            scratch.grbuf.as_mut_ptr(),
-            scratch.ist_pos[1].as_mut_ptr(),
-            gr_info.as_ptr(),
-            decoder.header.as_ptr(),
+        intensity_stereo(
+            &mut scratch.grbuf,
+            &mut scratch.ist_pos[1],
+            &native_gr_info[0],
+            (native_gr_info[1].scalefac_compress & 1).into(),
+            &decoder.header,
         );
     } else if header::is_ms_stereo(&decoder.header) {
         ffi::L3_midside_stereo(scratch.grbuf.as_mut_ptr(), 576);
@@ -475,6 +433,57 @@ pub unsafe fn decode(
             n_long_bands as u32,
         );
         ffi::L3_change_sign(scratch.grbuf[(channel * 576)..].as_mut_ptr());
+    }
+}
+
+fn intensity_stereo(
+    left: &mut [f32],
+    ist_pos: &mut [u8],
+    gr_info: &GrInfo,
+    scalefac_next: i32,
+    hdr: &[u8],
+) {
+    let mut max_band: [i32; 3] = [0; 3];
+    let (has_short, table, n_sfb) = match gr_info.sfb_table {
+        Some(SFBTable::Long(tab)) => (false, tab, 22),
+        Some(SFBTable::Short(tab)) => (true, tab, 39),
+        Some(SFBTable::Mixed(tab, extra)) => (true, tab, 30 + usize::from(extra)),
+        None => (false, &[] as _, 0),
+    };
+    unsafe {
+        ffi::L3_stereo_top_band(
+            left[576..].as_mut_ptr(),
+            table.as_ptr(),
+            n_sfb as i32,
+            max_band.as_mut_ptr(),
+        );
+    }
+
+    if !has_short {
+        let max_val = *max_band.iter().max().unwrap();
+        max_band.iter_mut().for_each(|band| *band = max_val);
+    }
+
+    let default_pos = if header::test_mpeg1(hdr) { 3 } else { 0 };
+    let max_blocks = if has_short { 3 } else { 1 };
+    for (i, band) in max_band.iter().enumerate().take(max_blocks) {
+        let itop = n_sfb - max_blocks + i;
+        let prev = itop - max_blocks;
+        ist_pos[itop] = if *band >= prev as i32 {
+            default_pos
+        } else {
+            ist_pos[prev]
+        };
+    }
+    unsafe {
+        ffi::L3_stereo_process(
+            left.as_mut_ptr(),
+            ist_pos.as_mut_ptr(),
+            table.as_ptr(),
+            hdr.as_ptr(),
+            max_band.as_mut_ptr(),
+            scalefac_next,
+        );
     }
 }
 
