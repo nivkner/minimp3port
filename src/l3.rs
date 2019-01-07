@@ -291,21 +291,18 @@ pub fn decode_scalefactors(
     };
 
     let mut iscf: [u8; 40] = [0; 40];
-    let mut bs_copy = unsafe { bs.bs_copy() };
     if header::test_mpeg1(hdr) {
         let g_scfc_decode: [u8; 16] = [0, 1, 2, 3, 12, 5, 6, 7, 9, 10, 11, 13, 14, 15, 18, 19];
         let part = g_scfc_decode[gr.scalefac_compress as usize] as u8;
         let scf_size = [part >> 2, part >> 2, part & 3, part & 3];
-        unsafe {
-            ffi::L3_read_scalefactors(
-                iscf.as_mut_ptr(),
-                ist_pos.as_mut_ptr(),
-                scf_size.as_ptr(),
-                scf_partition.as_ptr(),
-                &mut bs_copy,
-                gr.scfsi.into(),
-            )
-        };
+        read_scalefactors(
+            &mut iscf,
+            ist_pos,
+            &scf_size,
+            scf_partition,
+            bs,
+            gr.scfsi.into(),
+        )
     } else {
         let mut scf_size = [0; 4];
         let g_mod: [u8; 24] = [
@@ -323,18 +320,8 @@ pub fn decode_scalefactors(
             sfc -= modprod;
             k += 4
         }
-        unsafe {
-            ffi::L3_read_scalefactors(
-                iscf.as_mut_ptr(),
-                ist_pos.as_mut_ptr(),
-                scf_size.as_ptr(),
-                scf_partition[k..].as_ptr(),
-                &mut bs_copy,
-                -16,
-            )
-        };
+        read_scalefactors(&mut iscf, ist_pos, &scf_size, &scf_partition[k..], bs, -16)
     }
-    bs.position = bs_copy.pos as _;
 
     let scf_shift: i32 = i32::from(gr.scalefac_scale) + 1;
     let sfb_length = match gr.sfb_table {
@@ -374,6 +361,34 @@ pub fn decode_scalefactors(
     for i in 0..sfb_length {
         scf[i] = unsafe { ffi::L3_ldexp_q2(gain, i32::from(iscf[i]) << scf_shift) };
     }
+}
+
+fn read_scalefactors(
+    mut scf: &mut [u8],
+    mut ist_pos: &mut [u8],
+    scf_size: &[u8],
+    scf_count: &[u8],
+    bitbuf: &mut Bits,
+    mut scfsi: i32,
+) {
+    for i in (0..4).take_while(|&i| scf_count[i] != 0) {
+        let cnt = scf_count[i] as usize;
+        if 0 != scfsi & 8 {
+            scf[..cnt].copy_from_slice(&ist_pos[..cnt]);
+        } else {
+            let bits: i32 = scf_size[i].into();
+            let max_scf = if scfsi < 0 { (1 << bits) - 1 } else { -1 };
+            for (ist_pos, scf) in ist_pos.iter_mut().zip(scf.iter_mut()).take(cnt) {
+                let s = bitbuf.get_bits(bits as u32) as i32;
+                *ist_pos = (if s == max_scf { -1 } else { s }) as u8;
+                *scf = s as u8;
+            }
+        }
+        ist_pos = &mut ist_pos[cnt..];
+        scf = &mut scf[cnt..];
+        scfsi *= 2
+    }
+    scf[..3].copy_from_slice(&[0; 3]);
 }
 
 pub unsafe fn decode(
