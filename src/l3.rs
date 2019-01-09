@@ -353,7 +353,7 @@ fn read_scalefactors(
     scf[..3].copy_from_slice(&[0; 3]);
 }
 
-pub unsafe fn decode(
+pub fn decode(
     decoder: &mut ffi::mp3dec_t,
     scratch: &mut decoder::Scratch,
     native_gr_info: &[GrInfo],
@@ -405,35 +405,49 @@ pub unsafe fn decode(
         match gr_info.sfb_table {
             Some(SFBTable::Short(table)) => {
                 aa_bands = n_long_bands - 1;
-                ffi::L3_reorder(
-                    scratch.grbuf[(channel * 576)..]
-                        .as_mut_ptr()
-                        .offset((n_long_bands * 18) as isize),
-                    scratch.syn.as_mut_ptr(),
-                    table.as_ptr(),
+                reorder(
+                    &mut scratch.grbuf[(channel * 576 + n_long_bands as usize * 18)..],
+                    &mut scratch.syn,
+                    table,
                 );
             }
             Some(SFBTable::Mixed(table, extra)) => {
                 aa_bands = n_long_bands - 1;
-                ffi::L3_reorder(
-                    scratch.grbuf[(channel * 576)..]
-                        .as_mut_ptr()
-                        .offset((n_long_bands * 18) as isize),
-                    scratch.syn.as_mut_ptr(),
-                    table[(extra as usize)..].as_ptr(),
+                reorder(
+                    &mut scratch.grbuf[(channel * 576 + n_long_bands as usize * 18)..],
+                    &mut scratch.syn,
+                    &table[(extra as usize)..],
                 );
             }
             _ => (),
         }
-        ffi::L3_antialias(scratch.grbuf[(channel * 576)..].as_mut_ptr(), aa_bands);
-        ffi::L3_imdct_gr(
-            scratch.grbuf[(channel * 576)..].as_mut_ptr(),
-            decoder.mdct_overlap[channel].as_mut_ptr(),
-            gr_info.block_type.into(),
-            n_long_bands as u32,
-        );
-        ffi::L3_change_sign(scratch.grbuf[(channel * 576)..].as_mut_ptr());
+        unsafe {
+            ffi::L3_antialias(scratch.grbuf[(channel * 576)..].as_mut_ptr(), aa_bands);
+            ffi::L3_imdct_gr(
+                scratch.grbuf[(channel * 576)..].as_mut_ptr(),
+                decoder.mdct_overlap[channel].as_mut_ptr(),
+                gr_info.block_type.into(),
+                n_long_bands as u32,
+            );
+            ffi::L3_change_sign(scratch.grbuf[(channel * 576)..].as_mut_ptr());
+        }
     }
+}
+
+fn reorder(grbuf: &mut [f32], scratch: &mut [f32], sfb: &[u8]) {
+    let mut total_len = 0;
+    for &len in sfb.iter().take_while(|&len| *len != 0).step_by(3) {
+        let len = len as usize;
+        let dst = &mut scratch[total_len..];
+        let src = &grbuf[total_len..];
+        for (chunk, window) in dst.chunks_mut(3).zip(src.windows(len * 2 + 1)).take(len) {
+            chunk[0] = window[0];
+            chunk[1] = window[len];
+            chunk[2] = window[len * 2];
+        }
+        total_len += len * 3;
+    }
+    grbuf[..total_len].copy_from_slice(&scratch[..total_len]);
 }
 
 fn midside_stereo(data: &mut [f32], n: usize) {
