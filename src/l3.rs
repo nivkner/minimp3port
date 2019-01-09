@@ -392,7 +392,7 @@ pub unsafe fn decode(
             &decoder.header,
         );
     } else if header::is_ms_stereo(&decoder.header) {
-        ffi::L3_midside_stereo(scratch.grbuf.as_mut_ptr(), 576);
+        midside_stereo(&mut scratch.grbuf, 576);
     }
 
     for (channel, gr_info) in native_gr_info.iter().enumerate().take(channel_num) {
@@ -433,6 +433,16 @@ pub unsafe fn decode(
             n_long_bands as u32,
         );
         ffi::L3_change_sign(scratch.grbuf[(channel * 576)..].as_mut_ptr());
+    }
+}
+
+fn midside_stereo(data: &mut [f32], n: usize) {
+    let (left_slice, right_slice) = data.split_at_mut(576);
+    for (left, right) in left_slice.iter_mut().zip(right_slice.iter_mut()).take(n) {
+        let a = *left;
+        let b = *right;
+        *left = a + b;
+        *right = a - b;
     }
 }
 
