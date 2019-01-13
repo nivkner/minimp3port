@@ -320,10 +320,10 @@ pub fn decode_scalefactors(
     let gain_exp = i32::from(gr.global_gain) + BITS_DEQUANTIZER_OUT * 4
         - 210
         - if header::is_ms_stereo(hdr) { 2 } else { 0 };
-    let gain = unsafe { ffi::L3_ldexp_q2((1 << (MAX_SCFI / 4)) as f32, MAX_SCFI - gain_exp) };
+    let gain = ldexp_q2((1 << (MAX_SCFI / 4)) as f32, MAX_SCFI - gain_exp);
     // the length of the scalefactor band, whichever type it is
     for i in 0..sfb_length {
-        scf[i] = unsafe { ffi::L3_ldexp_q2(gain, i32::from(iscf[i]) << scf_shift) };
+        scf[i] = ldexp_q2(gain, i32::from(iscf[i]) << scf_shift);
     }
 }
 
@@ -853,5 +853,22 @@ fn pow_43(mut x: i32) -> f32 {
         G_POW43[(16 + ((x + sign) >> 6)) as usize] as f32
             * (1.0 + frac * (4.0 / 3.0 + frac * (2.0 / 9.0)))
             * mult
+    }
+}
+
+fn ldexp_q2(mut y: f32, mut exp_q2: i32) -> f32 {
+    let g_expfrac: [f64; 4] = [
+        9.313_225_75e-10,
+        7.831_458_14e-10,
+        6.585_445_08e-10,
+        5.537_677_16e-10,
+    ];
+    loop {
+        let e = if 30 * 4 > exp_q2 { exp_q2 } else { 30 * 4 };
+        y *= g_expfrac[(e & 3) as usize] as f32 * (1 << 30 >> (e >> 2)) as f32;
+        exp_q2 -= e;
+        if exp_q2 <= 0 {
+            return y;
+        }
     }
 }
