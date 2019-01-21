@@ -1,7 +1,6 @@
 #![allow(bad_style)]
 #![allow(clippy::all)]
 
-extern crate libc;
 extern crate minimp3port;
 
 use byteorder::ByteOrder;
@@ -108,11 +107,11 @@ test_all![
 ];
 
 struct mp3dec_file_info_t {
-    samples: libc::size_t,
-    channels: libc::c_int,
-    hz: libc::c_int,
-    layer: libc::c_int,
-    avg_bitrate_kbps: libc::c_int,
+    samples: usize,
+    channels: i32,
+    hz: i32,
+    layer: i32,
+    avg_bitrate_kbps: i32,
 }
 
 /* decode whole buffer block */
@@ -139,7 +138,7 @@ fn load_buffer(
     }
     let mut buf_slice = &buf[(id3v2size as usize)..];
     unsafe { mp3dec_init(dec) };
-    let mut samples: libc::c_int;
+    let mut samples: i32;
     loop {
         samples = decode_frame(dec, buf_slice, Some(&mut pcm), &mut frame_info);
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
@@ -151,13 +150,13 @@ fn load_buffer(
         return (MSE, maxdiff);
     }
     samples *= frame_info.channels;
-    info.samples = samples as libc::size_t;
+    info.samples = samples as usize;
     /* save info */
     info.channels = frame_info.channels;
     info.hz = frame_info.hz;
     info.layer = frame_info.layer;
-    let mut avg_bitrate_kbps: libc::size_t = frame_info.bitrate_kbps as libc::size_t;
-    let mut frames: libc::size_t = 1i32 as libc::size_t;
+    let mut avg_bitrate_kbps: usize = frame_info.bitrate_kbps as usize;
+    let mut frames: usize = 1i32 as usize;
     /* decode rest frames */
     let mut total = samples as usize;
     if !ref_buffer.is_empty() {
@@ -194,15 +193,15 @@ fn load_buffer(
                 /* mark file with mono-stereo transition */
                 info.channels = 0i32
             }
-            info.samples += (samples * frame_info.channels) as libc::size_t;
-            avg_bitrate_kbps += frame_info.bitrate_kbps as libc::size_t;
+            info.samples += (samples * frame_info.channels) as usize;
+            avg_bitrate_kbps += frame_info.bitrate_kbps as usize;
             frames += 1;
         }
         if 0 == frame_info.frame_bytes {
             break;
         }
     }
-    info.avg_bitrate_kbps = avg_bitrate_kbps.wrapping_div(frames) as libc::c_int;
+    info.avg_bitrate_kbps = avg_bitrate_kbps.wrapping_div(frames) as i32;
     (MSE, maxdiff)
 }
 

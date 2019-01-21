@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["Niv Kaminer <nivkner@zoho.com>"]
 edition = "2018"
 
-[dependencies]
-libc = { version = "0.2", default-features = false }
-
 [dev-dependencies]
 byteorder = "1"
 

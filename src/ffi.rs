@@ -12,11 +12,11 @@ pub fn wrapping_offset_from<T>(this: *const T, origin: *const T) -> isize {
     d.wrapping_div(pointee_size as _)
 }
 
-pub type __uint8_t = libc::c_uchar;
-pub type __int16_t = libc::c_short;
-pub type __uint16_t = libc::c_ushort;
-pub type __int32_t = libc::c_int;
-pub type __uint32_t = libc::c_uint;
+pub type __uint8_t = u8;
+pub type __int16_t = i16;
+pub type __uint16_t = u16;
+pub type __int32_t = i32;
+pub type __uint32_t = u32;
 pub type int16_t = __int16_t;
 pub type int32_t = __int32_t;
 pub type uint8_t = __uint8_t;
@@ -31,21 +31,21 @@ pub type uint32_t = __uint32_t;
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct mp3dec_frame_info_t {
-    pub frame_bytes: libc::c_int,
-    pub channels: libc::c_int,
-    pub hz: libc::c_int,
-    pub layer: libc::c_int,
-    pub bitrate_kbps: libc::c_int,
+    pub frame_bytes: i32,
+    pub channels: i32,
+    pub hz: i32,
+    pub layer: i32,
+    pub bitrate_kbps: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct mp3dec_t {
-    pub mdct_overlap: [[libc::c_float; 288]; 2],
-    pub qmf_state: [libc::c_float; 960],
-    pub reserv: libc::c_int,
-    pub free_format_bytes: libc::c_int,
-    pub header: [libc::c_uchar; 4],
-    pub reserv_buf: [libc::c_uchar; 511],
+    pub mdct_overlap: [[f32; 288]; 2],
+    pub qmf_state: [f32; 960],
+    pub reserv: i32,
+    pub free_format_bytes: i32,
+    pub header: [u8; 4],
+    pub reserv_buf: [u8; 511],
 }
 pub type mp3d_sample_t = int16_t;
 /* __cplusplus */
@@ -59,8 +59,8 @@ pub type mp3d_sample_t = int16_t;
 #[repr(C)]
 pub struct bs_t {
     pub buf: *const uint8_t,
-    pub pos: libc::c_int,
-    pub limit: libc::c_int,
+    pub pos: i32,
+    pub limit: i32,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -68,9 +68,9 @@ pub struct mp3dec_scratch_t {
     pub bs: bs_t,
     pub maindata: [uint8_t; 2815],
     pub gr_info: [L3_gr_info_t; 4],
-    pub grbuf: [[libc::c_float; 576]; 2],
-    pub scf: [libc::c_float; 40],
-    pub syn: [[libc::c_float; 64]; 33],
+    pub grbuf: [[f32; 576]; 2],
+    pub scf: [f32; 40],
+    pub syn: [[f32; 64]; 33],
     pub ist_pos: [[uint8_t; 39]; 2],
 }
 #[derive(Copy, Clone)]
@@ -96,7 +96,7 @@ pub struct L3_gr_info_t {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct L12_scale_info {
-    pub scf: [libc::c_float; 192],
+    pub scf: [f32; 192],
     pub total_bands: uint8_t,
     pub stereo_bands: uint8_t,
     pub bitalloc: [uint8_t; 64],
@@ -111,21 +111,21 @@ pub struct L12_subband_alloc_t {
 }
 /* __cplusplus */
 pub unsafe fn mp3dec_init(mut dec: *mut mp3dec_t) {
-    (*dec).header[0usize] = 0i32 as libc::c_uchar;
+    (*dec).header[0usize] = 0i32 as u8;
 }
 /* MINIMP3_FLOAT_OUTPUT */
 /* MINIMP3_FLOAT_OUTPUT */
 pub unsafe fn mp3dec_decode_frame(
     mut dec: *mut mp3dec_t,
     mut mp3: *const uint8_t,
-    mut mp3_bytes: libc::c_int,
+    mut mp3_bytes: i32,
     mut pcm: *mut mp3d_sample_t,
     mut info: *mut mp3dec_frame_info_t,
-) -> libc::c_int {
-    let mut i: libc::c_int = 0i32;
-    let mut igr: libc::c_int = 0;
-    let mut frame_size: libc::c_int = 0i32;
-    let mut success: libc::c_int = 1i32;
+) -> i32 {
+    let mut i: i32 = 0i32;
+    let mut igr: i32 = 0;
+    let mut frame_size: i32 = 0i32;
+    let mut success: i32 = 1i32;
     let mut hdr: *const uint8_t = 0 as *const uint8_t;
     let mut bs_frame: [bs_t; 1] = [bs_t {
         buf: 0 as *const uint8_t,
@@ -163,7 +163,7 @@ pub unsafe fn mp3dec_decode_frame(
         ist_pos: [[0; 39]; 2],
     };
     if mp3_bytes > 4i32
-        && (*dec).header[0usize] as libc::c_int == 0xffi32
+        && (*dec).header[0usize] as i32 == 0xffi32
         && 0 != hdr_compare((*dec).header.as_mut_ptr(), mp3)
     {
         frame_size = hdr_frame_bytes(mp3, (*dec).free_format_bytes) + hdr_padding(mp3);
@@ -190,23 +190,23 @@ pub unsafe fn mp3dec_decode_frame(
     hdr = mp3.offset(i as isize);
     ptr::copy_nonoverlapping(hdr, (*dec).header.as_mut_ptr(), 4);
     (*info).frame_bytes = i + frame_size;
-    (*info).channels = if *hdr.offset(3isize) as libc::c_int & 0xc0i32 == 0xc0i32 {
+    (*info).channels = if *hdr.offset(3isize) as i32 & 0xc0i32 == 0xc0i32 {
         1i32
     } else {
         2i32
     };
-    (*info).hz = hdr_sample_rate_hz(hdr) as libc::c_int;
-    (*info).layer = 4i32 - (*hdr.offset(1isize) as libc::c_int >> 1i32 & 3i32);
-    (*info).bitrate_kbps = hdr_bitrate_kbps(hdr) as libc::c_int;
+    (*info).hz = hdr_sample_rate_hz(hdr) as i32;
+    (*info).layer = 4i32 - (*hdr.offset(1isize) as i32 >> 1i32 & 3i32);
+    (*info).bitrate_kbps = hdr_bitrate_kbps(hdr) as i32;
     if pcm.is_null() {
-        return hdr_frame_samples(hdr) as libc::c_int;
+        return hdr_frame_samples(hdr) as i32;
     } else {
         bs_init(bs_frame.as_mut_ptr(), hdr.offset(4isize), frame_size - 4i32);
-        if 0 == *hdr.offset(1isize) as libc::c_int & 1i32 {
+        if 0 == *hdr.offset(1isize) as i32 & 1i32 {
             get_bits(bs_frame.as_mut_ptr(), 16i32);
         }
         if (*info).layer == 3i32 {
-            let mut main_data_begin: libc::c_int =
+            let mut main_data_begin: i32 =
                 L3_read_side_info(bs_frame.as_mut_ptr(), scratch.gr_info.as_mut_ptr(), hdr);
             if main_data_begin < 0i32
                 || (*bs_frame.as_mut_ptr()).pos > (*bs_frame.as_mut_ptr()).limit
@@ -219,7 +219,7 @@ pub unsafe fn mp3dec_decode_frame(
                 if 0 != success {
                     igr = 0i32;
                     while igr
-                        < if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
+                        < if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
                             2i32
                         } else {
                             1i32
@@ -296,27 +296,26 @@ pub unsafe fn mp3dec_decode_frame(
             }
         }
         /* MINIMP3_ONLY_MP3 */
-        return (success as libc::c_uint).wrapping_mul(hdr_frame_samples((*dec).header.as_mut_ptr()))
-            as libc::c_int;
+        return (success as u32).wrapping_mul(hdr_frame_samples((*dec).header.as_mut_ptr())) as i32;
     };
 }
-pub unsafe fn hdr_frame_samples(mut h: *const uint8_t) -> libc::c_uint {
-    return (if *h.offset(1isize) as libc::c_int & 6i32 == 6i32 {
+pub unsafe fn hdr_frame_samples(mut h: *const uint8_t) -> u32 {
+    return (if *h.offset(1isize) as i32 & 6i32 == 6i32 {
         384i32
     } else {
-        1152i32 >> (*h.offset(1isize) as libc::c_int & 14i32 == 2i32) as libc::c_int
-    }) as libc::c_uint;
+        1152i32 >> (*h.offset(1isize) as i32 & 14i32 == 2i32) as i32
+    }) as u32;
 }
 /* MINIMP3_ONLY_SIMD */
 pub unsafe fn mp3d_synth_granule(
-    mut qmf_state: *mut libc::c_float,
-    mut grbuf: *mut libc::c_float,
-    mut nbands: libc::c_int,
-    mut nch: libc::c_int,
+    mut qmf_state: *mut f32,
+    mut grbuf: *mut f32,
+    mut nbands: i32,
+    mut nch: i32,
     mut pcm: *mut mp3d_sample_t,
-    mut lins: *mut libc::c_float,
+    mut lins: *mut f32,
 ) {
-    let mut i: libc::c_int = 0;
+    let mut i: i32 = 0;
     i = 0i32;
     while i < nch {
         mp3d_DCT_II(grbuf.offset((576i32 * i) as isize), nbands);
@@ -345,258 +344,258 @@ pub unsafe fn mp3d_synth_granule(
     };
 }
 pub unsafe fn mp3d_synth(
-    mut xl: *mut libc::c_float,
+    mut xl: *mut f32,
     mut dstl: *mut mp3d_sample_t,
-    mut nch: libc::c_int,
-    mut lins: *mut libc::c_float,
+    mut nch: i32,
+    mut lins: *mut f32,
 ) {
-    let mut i: libc::c_int = 0;
-    let mut xr: *mut libc::c_float = xl.offset((576i32 * (nch - 1i32)) as isize);
+    let mut i: i32 = 0;
+    let mut xr: *mut f32 = xl.offset((576i32 * (nch - 1i32)) as isize);
     let mut dstr: *mut mp3d_sample_t = dstl.offset((nch - 1i32) as isize);
-    static mut g_win: [libc::c_float; 240] = [
-        -1i32 as libc::c_float,
-        26i32 as libc::c_float,
-        -31i32 as libc::c_float,
-        208i32 as libc::c_float,
-        218i32 as libc::c_float,
-        401i32 as libc::c_float,
-        -519i32 as libc::c_float,
-        2063i32 as libc::c_float,
-        2000i32 as libc::c_float,
-        4788i32 as libc::c_float,
-        -5517i32 as libc::c_float,
-        7134i32 as libc::c_float,
-        5959i32 as libc::c_float,
-        35640i32 as libc::c_float,
-        -39336i32 as libc::c_float,
-        74992i32 as libc::c_float,
-        -1i32 as libc::c_float,
-        24i32 as libc::c_float,
-        -35i32 as libc::c_float,
-        202i32 as libc::c_float,
-        222i32 as libc::c_float,
-        347i32 as libc::c_float,
-        -581i32 as libc::c_float,
-        2080i32 as libc::c_float,
-        1952i32 as libc::c_float,
-        4425i32 as libc::c_float,
-        -5879i32 as libc::c_float,
-        7640i32 as libc::c_float,
-        5288i32 as libc::c_float,
-        33791i32 as libc::c_float,
-        -41176i32 as libc::c_float,
-        74856i32 as libc::c_float,
-        -1i32 as libc::c_float,
-        21i32 as libc::c_float,
-        -38i32 as libc::c_float,
-        196i32 as libc::c_float,
-        225i32 as libc::c_float,
-        294i32 as libc::c_float,
-        -645i32 as libc::c_float,
-        2087i32 as libc::c_float,
-        1893i32 as libc::c_float,
-        4063i32 as libc::c_float,
-        -6237i32 as libc::c_float,
-        8092i32 as libc::c_float,
-        4561i32 as libc::c_float,
-        31947i32 as libc::c_float,
-        -43006i32 as libc::c_float,
-        74630i32 as libc::c_float,
-        -1i32 as libc::c_float,
-        19i32 as libc::c_float,
-        -41i32 as libc::c_float,
-        190i32 as libc::c_float,
-        227i32 as libc::c_float,
-        244i32 as libc::c_float,
-        -711i32 as libc::c_float,
-        2085i32 as libc::c_float,
-        1822i32 as libc::c_float,
-        3705i32 as libc::c_float,
-        -6589i32 as libc::c_float,
-        8492i32 as libc::c_float,
-        3776i32 as libc::c_float,
-        30112i32 as libc::c_float,
-        -44821i32 as libc::c_float,
-        74313i32 as libc::c_float,
-        -1i32 as libc::c_float,
-        17i32 as libc::c_float,
-        -45i32 as libc::c_float,
-        183i32 as libc::c_float,
-        228i32 as libc::c_float,
-        197i32 as libc::c_float,
-        -779i32 as libc::c_float,
-        2075i32 as libc::c_float,
-        1739i32 as libc::c_float,
-        3351i32 as libc::c_float,
-        -6935i32 as libc::c_float,
-        8840i32 as libc::c_float,
-        2935i32 as libc::c_float,
-        28289i32 as libc::c_float,
-        -46617i32 as libc::c_float,
-        73908i32 as libc::c_float,
-        -1i32 as libc::c_float,
-        16i32 as libc::c_float,
-        -49i32 as libc::c_float,
-        176i32 as libc::c_float,
-        228i32 as libc::c_float,
-        153i32 as libc::c_float,
-        -848i32 as libc::c_float,
-        2057i32 as libc::c_float,
-        1644i32 as libc::c_float,
-        3004i32 as libc::c_float,
-        -7271i32 as libc::c_float,
-        9139i32 as libc::c_float,
-        2037i32 as libc::c_float,
-        26482i32 as libc::c_float,
-        -48390i32 as libc::c_float,
-        73415i32 as libc::c_float,
-        -2i32 as libc::c_float,
-        14i32 as libc::c_float,
-        -53i32 as libc::c_float,
-        169i32 as libc::c_float,
-        227i32 as libc::c_float,
-        111i32 as libc::c_float,
-        -919i32 as libc::c_float,
-        2032i32 as libc::c_float,
-        1535i32 as libc::c_float,
-        2663i32 as libc::c_float,
-        -7597i32 as libc::c_float,
-        9389i32 as libc::c_float,
-        1082i32 as libc::c_float,
-        24694i32 as libc::c_float,
-        -50137i32 as libc::c_float,
-        72835i32 as libc::c_float,
-        -2i32 as libc::c_float,
-        13i32 as libc::c_float,
-        -58i32 as libc::c_float,
-        161i32 as libc::c_float,
-        224i32 as libc::c_float,
-        72i32 as libc::c_float,
-        -991i32 as libc::c_float,
-        2001i32 as libc::c_float,
-        1414i32 as libc::c_float,
-        2330i32 as libc::c_float,
-        -7910i32 as libc::c_float,
-        9592i32 as libc::c_float,
-        70i32 as libc::c_float,
-        22929i32 as libc::c_float,
-        -51853i32 as libc::c_float,
-        72169i32 as libc::c_float,
-        -2i32 as libc::c_float,
-        11i32 as libc::c_float,
-        -63i32 as libc::c_float,
-        154i32 as libc::c_float,
-        221i32 as libc::c_float,
-        36i32 as libc::c_float,
-        -1064i32 as libc::c_float,
-        1962i32 as libc::c_float,
-        1280i32 as libc::c_float,
-        2006i32 as libc::c_float,
-        -8209i32 as libc::c_float,
-        9750i32 as libc::c_float,
-        -998i32 as libc::c_float,
-        21189i32 as libc::c_float,
-        -53534i32 as libc::c_float,
-        71420i32 as libc::c_float,
-        -2i32 as libc::c_float,
-        10i32 as libc::c_float,
-        -68i32 as libc::c_float,
-        147i32 as libc::c_float,
-        215i32 as libc::c_float,
-        2i32 as libc::c_float,
-        -1137i32 as libc::c_float,
-        1919i32 as libc::c_float,
-        1131i32 as libc::c_float,
-        1692i32 as libc::c_float,
-        -8491i32 as libc::c_float,
-        9863i32 as libc::c_float,
-        -2122i32 as libc::c_float,
-        19478i32 as libc::c_float,
-        -55178i32 as libc::c_float,
-        70590i32 as libc::c_float,
-        -3i32 as libc::c_float,
-        9i32 as libc::c_float,
-        -73i32 as libc::c_float,
-        139i32 as libc::c_float,
-        208i32 as libc::c_float,
-        -29i32 as libc::c_float,
-        -1210i32 as libc::c_float,
-        1870i32 as libc::c_float,
-        970i32 as libc::c_float,
-        1388i32 as libc::c_float,
-        -8755i32 as libc::c_float,
-        9935i32 as libc::c_float,
-        -3300i32 as libc::c_float,
-        17799i32 as libc::c_float,
-        -56778i32 as libc::c_float,
-        69679i32 as libc::c_float,
-        -3i32 as libc::c_float,
-        8i32 as libc::c_float,
-        -79i32 as libc::c_float,
-        132i32 as libc::c_float,
-        200i32 as libc::c_float,
-        -57i32 as libc::c_float,
-        -1283i32 as libc::c_float,
-        1817i32 as libc::c_float,
-        794i32 as libc::c_float,
-        1095i32 as libc::c_float,
-        -8998i32 as libc::c_float,
-        9966i32 as libc::c_float,
-        -4533i32 as libc::c_float,
-        16155i32 as libc::c_float,
-        -58333i32 as libc::c_float,
-        68692i32 as libc::c_float,
-        -4i32 as libc::c_float,
-        7i32 as libc::c_float,
-        -85i32 as libc::c_float,
-        125i32 as libc::c_float,
-        189i32 as libc::c_float,
-        -83i32 as libc::c_float,
-        -1356i32 as libc::c_float,
-        1759i32 as libc::c_float,
-        605i32 as libc::c_float,
-        814i32 as libc::c_float,
-        -9219i32 as libc::c_float,
-        9959i32 as libc::c_float,
-        -5818i32 as libc::c_float,
-        14548i32 as libc::c_float,
-        -59838i32 as libc::c_float,
-        67629i32 as libc::c_float,
-        -4i32 as libc::c_float,
-        7i32 as libc::c_float,
-        -91i32 as libc::c_float,
-        117i32 as libc::c_float,
-        177i32 as libc::c_float,
-        -106i32 as libc::c_float,
-        -1428i32 as libc::c_float,
-        1698i32 as libc::c_float,
-        402i32 as libc::c_float,
-        545i32 as libc::c_float,
-        -9416i32 as libc::c_float,
-        9916i32 as libc::c_float,
-        -7154i32 as libc::c_float,
-        12980i32 as libc::c_float,
-        -61289i32 as libc::c_float,
-        66494i32 as libc::c_float,
-        -5i32 as libc::c_float,
-        6i32 as libc::c_float,
-        -97i32 as libc::c_float,
-        111i32 as libc::c_float,
-        163i32 as libc::c_float,
-        -127i32 as libc::c_float,
-        -1498i32 as libc::c_float,
-        1634i32 as libc::c_float,
-        185i32 as libc::c_float,
-        288i32 as libc::c_float,
-        -9585i32 as libc::c_float,
-        9838i32 as libc::c_float,
-        -8540i32 as libc::c_float,
-        11455i32 as libc::c_float,
-        -62684i32 as libc::c_float,
-        65290i32 as libc::c_float,
+    static mut g_win: [f32; 240] = [
+        -1i32 as f32,
+        26i32 as f32,
+        -31i32 as f32,
+        208i32 as f32,
+        218i32 as f32,
+        401i32 as f32,
+        -519i32 as f32,
+        2063i32 as f32,
+        2000i32 as f32,
+        4788i32 as f32,
+        -5517i32 as f32,
+        7134i32 as f32,
+        5959i32 as f32,
+        35640i32 as f32,
+        -39336i32 as f32,
+        74992i32 as f32,
+        -1i32 as f32,
+        24i32 as f32,
+        -35i32 as f32,
+        202i32 as f32,
+        222i32 as f32,
+        347i32 as f32,
+        -581i32 as f32,
+        2080i32 as f32,
+        1952i32 as f32,
+        4425i32 as f32,
+        -5879i32 as f32,
+        7640i32 as f32,
+        5288i32 as f32,
+        33791i32 as f32,
+        -41176i32 as f32,
+        74856i32 as f32,
+        -1i32 as f32,
+        21i32 as f32,
+        -38i32 as f32,
+        196i32 as f32,
+        225i32 as f32,
+        294i32 as f32,
+        -645i32 as f32,
+        2087i32 as f32,
+        1893i32 as f32,
+        4063i32 as f32,
+        -6237i32 as f32,
+        8092i32 as f32,
+        4561i32 as f32,
+        31947i32 as f32,
+        -43006i32 as f32,
+        74630i32 as f32,
+        -1i32 as f32,
+        19i32 as f32,
+        -41i32 as f32,
+        190i32 as f32,
+        227i32 as f32,
+        244i32 as f32,
+        -711i32 as f32,
+        2085i32 as f32,
+        1822i32 as f32,
+        3705i32 as f32,
+        -6589i32 as f32,
+        8492i32 as f32,
+        3776i32 as f32,
+        30112i32 as f32,
+        -44821i32 as f32,
+        74313i32 as f32,
+        -1i32 as f32,
+        17i32 as f32,
+        -45i32 as f32,
+        183i32 as f32,
+        228i32 as f32,
+        197i32 as f32,
+        -779i32 as f32,
+        2075i32 as f32,
+        1739i32 as f32,
+        3351i32 as f32,
+        -6935i32 as f32,
+        8840i32 as f32,
+        2935i32 as f32,
+        28289i32 as f32,
+        -46617i32 as f32,
+        73908i32 as f32,
+        -1i32 as f32,
+        16i32 as f32,
+        -49i32 as f32,
+        176i32 as f32,
+        228i32 as f32,
+        153i32 as f32,
+        -848i32 as f32,
+        2057i32 as f32,
+        1644i32 as f32,
+        3004i32 as f32,
+        -7271i32 as f32,
+        9139i32 as f32,
+        2037i32 as f32,
+        26482i32 as f32,
+        -48390i32 as f32,
+        73415i32 as f32,
+        -2i32 as f32,
+        14i32 as f32,
+        -53i32 as f32,
+        169i32 as f32,
+        227i32 as f32,
+        111i32 as f32,
+        -919i32 as f32,
+        2032i32 as f32,
+        1535i32 as f32,
+        2663i32 as f32,
+        -7597i32 as f32,
+        9389i32 as f32,
+        1082i32 as f32,
+        24694i32 as f32,
+        -50137i32 as f32,
+        72835i32 as f32,
+        -2i32 as f32,
+        13i32 as f32,
+        -58i32 as f32,
+        161i32 as f32,
+        224i32 as f32,
+        72i32 as f32,
+        -991i32 as f32,
+        2001i32 as f32,
+        1414i32 as f32,
+        2330i32 as f32,
+        -7910i32 as f32,
+        9592i32 as f32,
+        70i32 as f32,
+        22929i32 as f32,
+        -51853i32 as f32,
+        72169i32 as f32,
+        -2i32 as f32,
+        11i32 as f32,
+        -63i32 as f32,
+        154i32 as f32,
+        221i32 as f32,
+        36i32 as f32,
+        -1064i32 as f32,
+        1962i32 as f32,
+        1280i32 as f32,
+        2006i32 as f32,
+        -8209i32 as f32,
+        9750i32 as f32,
+        -998i32 as f32,
+        21189i32 as f32,
+        -53534i32 as f32,
+        71420i32 as f32,
+        -2i32 as f32,
+        10i32 as f32,
+        -68i32 as f32,
+        147i32 as f32,
+        215i32 as f32,
+        2i32 as f32,
+        -1137i32 as f32,
+        1919i32 as f32,
+        1131i32 as f32,
+        1692i32 as f32,
+        -8491i32 as f32,
+        9863i32 as f32,
+        -2122i32 as f32,
+        19478i32 as f32,
+        -55178i32 as f32,
+        70590i32 as f32,
+        -3i32 as f32,
+        9i32 as f32,
+        -73i32 as f32,
+        139i32 as f32,
+        208i32 as f32,
+        -29i32 as f32,
+        -1210i32 as f32,
+        1870i32 as f32,
+        970i32 as f32,
+        1388i32 as f32,
+        -8755i32 as f32,
+        9935i32 as f32,
+        -3300i32 as f32,
+        17799i32 as f32,
+        -56778i32 as f32,
+        69679i32 as f32,
+        -3i32 as f32,
+        8i32 as f32,
+        -79i32 as f32,
+        132i32 as f32,
+        200i32 as f32,
+        -57i32 as f32,
+        -1283i32 as f32,
+        1817i32 as f32,
+        794i32 as f32,
+        1095i32 as f32,
+        -8998i32 as f32,
+        9966i32 as f32,
+        -4533i32 as f32,
+        16155i32 as f32,
+        -58333i32 as f32,
+        68692i32 as f32,
+        -4i32 as f32,
+        7i32 as f32,
+        -85i32 as f32,
+        125i32 as f32,
+        189i32 as f32,
+        -83i32 as f32,
+        -1356i32 as f32,
+        1759i32 as f32,
+        605i32 as f32,
+        814i32 as f32,
+        -9219i32 as f32,
+        9959i32 as f32,
+        -5818i32 as f32,
+        14548i32 as f32,
+        -59838i32 as f32,
+        67629i32 as f32,
+        -4i32 as f32,
+        7i32 as f32,
+        -91i32 as f32,
+        117i32 as f32,
+        177i32 as f32,
+        -106i32 as f32,
+        -1428i32 as f32,
+        1698i32 as f32,
+        402i32 as f32,
+        545i32 as f32,
+        -9416i32 as f32,
+        9916i32 as f32,
+        -7154i32 as f32,
+        12980i32 as f32,
+        -61289i32 as f32,
+        66494i32 as f32,
+        -5i32 as f32,
+        6i32 as f32,
+        -97i32 as f32,
+        111i32 as f32,
+        163i32 as f32,
+        -127i32 as f32,
+        -1498i32 as f32,
+        1634i32 as f32,
+        185i32 as f32,
+        288i32 as f32,
+        -9585i32 as f32,
+        9838i32 as f32,
+        -8540i32 as f32,
+        11455i32 as f32,
+        -62684i32 as f32,
+        65290i32 as f32,
     ];
-    let mut zlin: *mut libc::c_float = lins.offset((15i32 * 64i32) as isize);
-    let mut w: *const libc::c_float = g_win.as_ptr();
+    let mut zlin: *mut f32 = lins.offset((15i32 * 64i32) as isize);
+    let mut w: *const f32 = g_win.as_ptr();
     *zlin.offset((4i32 * 15i32) as isize) = *xl.offset((18i32 * 16i32) as isize);
     *zlin.offset((4i32 * 15i32 + 1i32) as isize) = *xr.offset((18i32 * 16i32) as isize);
     *zlin.offset((4i32 * 15i32 + 2i32) as isize) = *xl.offset(0isize);
@@ -627,8 +626,8 @@ pub unsafe fn mp3d_synth(
     /* MINIMP3_ONLY_SIMD */
     i = 14i32;
     while i >= 0i32 {
-        let mut a: [libc::c_float; 4] = [0.; 4];
-        let mut b: [libc::c_float; 4] = [0.; 4];
+        let mut a: [f32; 4] = [0.; 4];
+        let mut b: [f32; 4] = [0.; 4];
         *zlin.offset((4i32 * i) as isize) = *xl.offset((18i32 * (31i32 - i)) as isize);
         *zlin.offset((4i32 * i + 1i32) as isize) = *xr.offset((18i32 * (31i32 - i)) as isize);
         *zlin.offset((4i32 * i + 2i32) as isize) =
@@ -643,34 +642,32 @@ pub unsafe fn mp3d_synth(
             *xl.offset((18i32 * (1i32 + i)) as isize);
         *zlin.offset((4i32 * (i - 16i32) + 3i32) as isize) =
             *xr.offset((18i32 * (1i32 + i)) as isize);
-        let mut j: libc::c_int = 0;
+        let mut j: i32 = 0;
         let fresh0 = w;
         w = w.offset(1);
-        let mut w0: libc::c_float = *fresh0;
+        let mut w0: f32 = *fresh0;
         let fresh1 = w;
         w = w.offset(1);
-        let mut w1: libc::c_float = *fresh1;
-        let mut vz: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - 0i32 * 64i32) as isize) as *mut libc::c_float;
-        let mut vy: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - (15i32 - 0i32) * 64i32) as isize) as *mut libc::c_float;
+        let mut w1: f32 = *fresh1;
+        let mut vz: *mut f32 = &mut *zlin.offset((4i32 * i - 0i32 * 64i32) as isize) as *mut f32;
+        let mut vy: *mut f32 =
+            &mut *zlin.offset((4i32 * i - (15i32 - 0i32) * 64i32) as isize) as *mut f32;
         j = 0i32;
         while j < 4i32 {
             b[j as usize] = *vz.offset(j as isize) * w1 + *vy.offset(j as isize) * w0;
             a[j as usize] = *vz.offset(j as isize) * w0 - *vy.offset(j as isize) * w1;
             j += 1
         }
-        let mut j_0: libc::c_int = 0;
+        let mut j_0: i32 = 0;
         let fresh2 = w;
         w = w.offset(1);
-        let mut w0_0: libc::c_float = *fresh2;
+        let mut w0_0: f32 = *fresh2;
         let fresh3 = w;
         w = w.offset(1);
-        let mut w1_0: libc::c_float = *fresh3;
-        let mut vz_0: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - 1i32 * 64i32) as isize) as *mut libc::c_float;
-        let mut vy_0: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - (15i32 - 1i32) * 64i32) as isize) as *mut libc::c_float;
+        let mut w1_0: f32 = *fresh3;
+        let mut vz_0: *mut f32 = &mut *zlin.offset((4i32 * i - 1i32 * 64i32) as isize) as *mut f32;
+        let mut vy_0: *mut f32 =
+            &mut *zlin.offset((4i32 * i - (15i32 - 1i32) * 64i32) as isize) as *mut f32;
         j_0 = 0i32;
         while j_0 < 4i32 {
             b[j_0 as usize] +=
@@ -679,17 +676,16 @@ pub unsafe fn mp3d_synth(
                 *vy_0.offset(j_0 as isize) * w1_0 - *vz_0.offset(j_0 as isize) * w0_0;
             j_0 += 1
         }
-        let mut j_1: libc::c_int = 0;
+        let mut j_1: i32 = 0;
         let fresh4 = w;
         w = w.offset(1);
-        let mut w0_1: libc::c_float = *fresh4;
+        let mut w0_1: f32 = *fresh4;
         let fresh5 = w;
         w = w.offset(1);
-        let mut w1_1: libc::c_float = *fresh5;
-        let mut vz_1: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - 2i32 * 64i32) as isize) as *mut libc::c_float;
-        let mut vy_1: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - (15i32 - 2i32) * 64i32) as isize) as *mut libc::c_float;
+        let mut w1_1: f32 = *fresh5;
+        let mut vz_1: *mut f32 = &mut *zlin.offset((4i32 * i - 2i32 * 64i32) as isize) as *mut f32;
+        let mut vy_1: *mut f32 =
+            &mut *zlin.offset((4i32 * i - (15i32 - 2i32) * 64i32) as isize) as *mut f32;
         j_1 = 0i32;
         while j_1 < 4i32 {
             b[j_1 as usize] +=
@@ -698,17 +694,16 @@ pub unsafe fn mp3d_synth(
                 *vz_1.offset(j_1 as isize) * w0_1 - *vy_1.offset(j_1 as isize) * w1_1;
             j_1 += 1
         }
-        let mut j_2: libc::c_int = 0;
+        let mut j_2: i32 = 0;
         let fresh6 = w;
         w = w.offset(1);
-        let mut w0_2: libc::c_float = *fresh6;
+        let mut w0_2: f32 = *fresh6;
         let fresh7 = w;
         w = w.offset(1);
-        let mut w1_2: libc::c_float = *fresh7;
-        let mut vz_2: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - 3i32 * 64i32) as isize) as *mut libc::c_float;
-        let mut vy_2: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - (15i32 - 3i32) * 64i32) as isize) as *mut libc::c_float;
+        let mut w1_2: f32 = *fresh7;
+        let mut vz_2: *mut f32 = &mut *zlin.offset((4i32 * i - 3i32 * 64i32) as isize) as *mut f32;
+        let mut vy_2: *mut f32 =
+            &mut *zlin.offset((4i32 * i - (15i32 - 3i32) * 64i32) as isize) as *mut f32;
         j_2 = 0i32;
         while j_2 < 4i32 {
             b[j_2 as usize] +=
@@ -717,17 +712,16 @@ pub unsafe fn mp3d_synth(
                 *vy_2.offset(j_2 as isize) * w1_2 - *vz_2.offset(j_2 as isize) * w0_2;
             j_2 += 1
         }
-        let mut j_3: libc::c_int = 0;
+        let mut j_3: i32 = 0;
         let fresh8 = w;
         w = w.offset(1);
-        let mut w0_3: libc::c_float = *fresh8;
+        let mut w0_3: f32 = *fresh8;
         let fresh9 = w;
         w = w.offset(1);
-        let mut w1_3: libc::c_float = *fresh9;
-        let mut vz_3: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - 4i32 * 64i32) as isize) as *mut libc::c_float;
-        let mut vy_3: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - (15i32 - 4i32) * 64i32) as isize) as *mut libc::c_float;
+        let mut w1_3: f32 = *fresh9;
+        let mut vz_3: *mut f32 = &mut *zlin.offset((4i32 * i - 4i32 * 64i32) as isize) as *mut f32;
+        let mut vy_3: *mut f32 =
+            &mut *zlin.offset((4i32 * i - (15i32 - 4i32) * 64i32) as isize) as *mut f32;
         j_3 = 0i32;
         while j_3 < 4i32 {
             b[j_3 as usize] +=
@@ -736,17 +730,16 @@ pub unsafe fn mp3d_synth(
                 *vz_3.offset(j_3 as isize) * w0_3 - *vy_3.offset(j_3 as isize) * w1_3;
             j_3 += 1
         }
-        let mut j_4: libc::c_int = 0;
+        let mut j_4: i32 = 0;
         let fresh10 = w;
         w = w.offset(1);
-        let mut w0_4: libc::c_float = *fresh10;
+        let mut w0_4: f32 = *fresh10;
         let fresh11 = w;
         w = w.offset(1);
-        let mut w1_4: libc::c_float = *fresh11;
-        let mut vz_4: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - 5i32 * 64i32) as isize) as *mut libc::c_float;
-        let mut vy_4: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - (15i32 - 5i32) * 64i32) as isize) as *mut libc::c_float;
+        let mut w1_4: f32 = *fresh11;
+        let mut vz_4: *mut f32 = &mut *zlin.offset((4i32 * i - 5i32 * 64i32) as isize) as *mut f32;
+        let mut vy_4: *mut f32 =
+            &mut *zlin.offset((4i32 * i - (15i32 - 5i32) * 64i32) as isize) as *mut f32;
         j_4 = 0i32;
         while j_4 < 4i32 {
             b[j_4 as usize] +=
@@ -755,17 +748,16 @@ pub unsafe fn mp3d_synth(
                 *vy_4.offset(j_4 as isize) * w1_4 - *vz_4.offset(j_4 as isize) * w0_4;
             j_4 += 1
         }
-        let mut j_5: libc::c_int = 0;
+        let mut j_5: i32 = 0;
         let fresh12 = w;
         w = w.offset(1);
-        let mut w0_5: libc::c_float = *fresh12;
+        let mut w0_5: f32 = *fresh12;
         let fresh13 = w;
         w = w.offset(1);
-        let mut w1_5: libc::c_float = *fresh13;
-        let mut vz_5: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - 6i32 * 64i32) as isize) as *mut libc::c_float;
-        let mut vy_5: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - (15i32 - 6i32) * 64i32) as isize) as *mut libc::c_float;
+        let mut w1_5: f32 = *fresh13;
+        let mut vz_5: *mut f32 = &mut *zlin.offset((4i32 * i - 6i32 * 64i32) as isize) as *mut f32;
+        let mut vy_5: *mut f32 =
+            &mut *zlin.offset((4i32 * i - (15i32 - 6i32) * 64i32) as isize) as *mut f32;
         j_5 = 0i32;
         while j_5 < 4i32 {
             b[j_5 as usize] +=
@@ -774,17 +766,16 @@ pub unsafe fn mp3d_synth(
                 *vz_5.offset(j_5 as isize) * w0_5 - *vy_5.offset(j_5 as isize) * w1_5;
             j_5 += 1
         }
-        let mut j_6: libc::c_int = 0;
+        let mut j_6: i32 = 0;
         let fresh14 = w;
         w = w.offset(1);
-        let mut w0_6: libc::c_float = *fresh14;
+        let mut w0_6: f32 = *fresh14;
         let fresh15 = w;
         w = w.offset(1);
-        let mut w1_6: libc::c_float = *fresh15;
-        let mut vz_6: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - 7i32 * 64i32) as isize) as *mut libc::c_float;
-        let mut vy_6: *mut libc::c_float =
-            &mut *zlin.offset((4i32 * i - (15i32 - 7i32) * 64i32) as isize) as *mut libc::c_float;
+        let mut w1_6: f32 = *fresh15;
+        let mut vz_6: *mut f32 = &mut *zlin.offset((4i32 * i - 7i32 * 64i32) as isize) as *mut f32;
+        let mut vy_6: *mut f32 =
+            &mut *zlin.offset((4i32 * i - (15i32 - 7i32) * 64i32) as isize) as *mut f32;
         j_6 = 0i32;
         while j_6 < 4i32 {
             b[j_6 as usize] +=
@@ -805,54 +796,47 @@ pub unsafe fn mp3d_synth(
     }
 }
 /* MINIMP3_ONLY_SIMD */
-pub unsafe fn mp3d_scale_pcm(mut sample: libc::c_float) -> int16_t {
-    if sample as libc::c_double >= 32766.5f64 {
+pub unsafe fn mp3d_scale_pcm(mut sample: f32) -> int16_t {
+    if sample as f64 >= 32766.5f64 {
         return 32767i32 as int16_t;
-    } else if sample as libc::c_double <= -32767.5f64 {
+    } else if sample as f64 <= -32767.5f64 {
         return -32768i32 as int16_t;
     } else {
         let mut s: int16_t = (sample + 0.5f32) as int16_t;
         /* away from zero, to be compliant */
-        s = (s as libc::c_int - ((s as libc::c_int) < 0i32) as libc::c_int) as int16_t;
+        s = (s as i32 - ((s as i32) < 0i32) as i32) as int16_t;
         return s;
     };
 }
 /* MINIMP3_FLOAT_OUTPUT */
 /* MINIMP3_FLOAT_OUTPUT */
-pub unsafe fn mp3d_synth_pair(
-    mut pcm: *mut mp3d_sample_t,
-    mut nch: libc::c_int,
-    mut z: *const libc::c_float,
-) {
-    let mut a: libc::c_float = 0.;
-    a = (*z.offset((14i32 * 64i32) as isize) - *z.offset(0isize)) * 29i32 as libc::c_float;
-    a += (*z.offset((1i32 * 64i32) as isize) + *z.offset((13i32 * 64i32) as isize))
-        * 213i32 as libc::c_float;
-    a += (*z.offset((12i32 * 64i32) as isize) - *z.offset((2i32 * 64i32) as isize))
-        * 459i32 as libc::c_float;
-    a += (*z.offset((3i32 * 64i32) as isize) + *z.offset((11i32 * 64i32) as isize))
-        * 2037i32 as libc::c_float;
-    a += (*z.offset((10i32 * 64i32) as isize) - *z.offset((4i32 * 64i32) as isize))
-        * 5153i32 as libc::c_float;
-    a += (*z.offset((5i32 * 64i32) as isize) + *z.offset((9i32 * 64i32) as isize))
-        * 6574i32 as libc::c_float;
-    a += (*z.offset((8i32 * 64i32) as isize) - *z.offset((6i32 * 64i32) as isize))
-        * 37489i32 as libc::c_float;
-    a += *z.offset((7i32 * 64i32) as isize) * 75038i32 as libc::c_float;
+pub unsafe fn mp3d_synth_pair(mut pcm: *mut mp3d_sample_t, mut nch: i32, mut z: *const f32) {
+    let mut a: f32 = 0.;
+    a = (*z.offset((14i32 * 64i32) as isize) - *z.offset(0isize)) * 29i32 as f32;
+    a += (*z.offset((1i32 * 64i32) as isize) + *z.offset((13i32 * 64i32) as isize)) * 213i32 as f32;
+    a += (*z.offset((12i32 * 64i32) as isize) - *z.offset((2i32 * 64i32) as isize)) * 459i32 as f32;
+    a +=
+        (*z.offset((3i32 * 64i32) as isize) + *z.offset((11i32 * 64i32) as isize)) * 2037i32 as f32;
+    a +=
+        (*z.offset((10i32 * 64i32) as isize) - *z.offset((4i32 * 64i32) as isize)) * 5153i32 as f32;
+    a += (*z.offset((5i32 * 64i32) as isize) + *z.offset((9i32 * 64i32) as isize)) * 6574i32 as f32;
+    a +=
+        (*z.offset((8i32 * 64i32) as isize) - *z.offset((6i32 * 64i32) as isize)) * 37489i32 as f32;
+    a += *z.offset((7i32 * 64i32) as isize) * 75038i32 as f32;
     *pcm.offset(0isize) = mp3d_scale_pcm(a);
     z = z.offset(2isize);
-    a = *z.offset((14i32 * 64i32) as isize) * 104i32 as libc::c_float;
-    a += *z.offset((12i32 * 64i32) as isize) * 1567i32 as libc::c_float;
-    a += *z.offset((10i32 * 64i32) as isize) * 9727i32 as libc::c_float;
-    a += *z.offset((8i32 * 64i32) as isize) * 64019i32 as libc::c_float;
-    a += *z.offset((6i32 * 64i32) as isize) * -9975i32 as libc::c_float;
-    a += *z.offset((4i32 * 64i32) as isize) * -45i32 as libc::c_float;
-    a += *z.offset((2i32 * 64i32) as isize) * 146i32 as libc::c_float;
-    a += *z.offset((0i32 * 64i32) as isize) * -5i32 as libc::c_float;
+    a = *z.offset((14i32 * 64i32) as isize) * 104i32 as f32;
+    a += *z.offset((12i32 * 64i32) as isize) * 1567i32 as f32;
+    a += *z.offset((10i32 * 64i32) as isize) * 9727i32 as f32;
+    a += *z.offset((8i32 * 64i32) as isize) * 64019i32 as f32;
+    a += *z.offset((6i32 * 64i32) as isize) * -9975i32 as f32;
+    a += *z.offset((4i32 * 64i32) as isize) * -45i32 as f32;
+    a += *z.offset((2i32 * 64i32) as isize) * 146i32 as f32;
+    a += *z.offset((0i32 * 64i32) as isize) * -5i32 as f32;
     *pcm.offset((16i32 * nch) as isize) = mp3d_scale_pcm(a);
 }
-pub unsafe fn mp3d_DCT_II(mut grbuf: *mut libc::c_float, mut n: libc::c_int) {
-    static mut g_sec: [libc::c_float; 24] = [
+pub unsafe fn mp3d_DCT_II(mut grbuf: *mut f32, mut n: i32) {
+    static mut g_sec: [f32; 24] = [
         10.190008163452149f32,
         0.5006030201911926f32,
         0.5024192929267883f32,
@@ -878,25 +862,25 @@ pub unsafe fn mp3d_DCT_II(mut grbuf: *mut libc::c_float, mut n: libc::c_int) {
         0.6748083233833313f32,
         5.10114860534668f32,
     ];
-    let mut i: libc::c_int = 0;
-    let mut k: libc::c_int = 0i32;
+    let mut i: i32 = 0;
+    let mut k: i32 = 0i32;
     /* HAVE_SIMD */
     /* MINIMP3_ONLY_SIMD */
     while k < n {
-        let mut t: [[libc::c_float; 8]; 4] = [[0.; 8]; 4];
-        let mut x: *mut libc::c_float = 0 as *mut libc::c_float;
-        let mut y: *mut libc::c_float = grbuf.offset(k as isize);
+        let mut t: [[f32; 8]; 4] = [[0.; 8]; 4];
+        let mut x: *mut f32 = 0 as *mut f32;
+        let mut y: *mut f32 = grbuf.offset(k as isize);
         x = t[0usize].as_mut_ptr();
         i = 0i32;
         while i < 8i32 {
-            let mut x0: libc::c_float = *y.offset((i * 18i32) as isize);
-            let mut x1: libc::c_float = *y.offset(((15i32 - i) * 18i32) as isize);
-            let mut x2: libc::c_float = *y.offset(((16i32 + i) * 18i32) as isize);
-            let mut x3: libc::c_float = *y.offset(((31i32 - i) * 18i32) as isize);
-            let mut t0: libc::c_float = x0 + x3;
-            let mut t1: libc::c_float = x1 + x2;
-            let mut t2: libc::c_float = (x1 - x2) * g_sec[(3i32 * i + 0i32) as usize];
-            let mut t3: libc::c_float = (x0 - x3) * g_sec[(3i32 * i + 1i32) as usize];
+            let mut x0: f32 = *y.offset((i * 18i32) as isize);
+            let mut x1: f32 = *y.offset(((15i32 - i) * 18i32) as isize);
+            let mut x2: f32 = *y.offset(((16i32 + i) * 18i32) as isize);
+            let mut x3: f32 = *y.offset(((31i32 - i) * 18i32) as isize);
+            let mut t0: f32 = x0 + x3;
+            let mut t1: f32 = x1 + x2;
+            let mut t2: f32 = (x1 - x2) * g_sec[(3i32 * i + 0i32) as usize];
+            let mut t3: f32 = (x0 - x3) * g_sec[(3i32 * i + 1i32) as usize];
             *x.offset(0isize) = t0 + t1;
             *x.offset(8isize) = (t0 - t1) * g_sec[(3i32 * i + 2i32) as usize];
             *x.offset(16isize) = t3 + t2;
@@ -907,15 +891,15 @@ pub unsafe fn mp3d_DCT_II(mut grbuf: *mut libc::c_float, mut n: libc::c_int) {
         x = t[0usize].as_mut_ptr();
         i = 0i32;
         while i < 4i32 {
-            let mut x0_0: libc::c_float = *x.offset(0isize);
-            let mut x1_0: libc::c_float = *x.offset(1isize);
-            let mut x2_0: libc::c_float = *x.offset(2isize);
-            let mut x3_0: libc::c_float = *x.offset(3isize);
-            let mut x4: libc::c_float = *x.offset(4isize);
-            let mut x5: libc::c_float = *x.offset(5isize);
-            let mut x6: libc::c_float = *x.offset(6isize);
-            let mut x7: libc::c_float = *x.offset(7isize);
-            let mut xt: libc::c_float = 0.;
+            let mut x0_0: f32 = *x.offset(0isize);
+            let mut x1_0: f32 = *x.offset(1isize);
+            let mut x2_0: f32 = *x.offset(2isize);
+            let mut x3_0: f32 = *x.offset(3isize);
+            let mut x4: f32 = *x.offset(4isize);
+            let mut x5: f32 = *x.offset(5isize);
+            let mut x6: f32 = *x.offset(6isize);
+            let mut x7: f32 = *x.offset(7isize);
+            let mut xt: f32 = 0.;
             xt = x0_0 - x7;
             x0_0 += x7;
             x7 = x1_0 - x6;
@@ -971,20 +955,19 @@ pub unsafe fn mp3d_DCT_II(mut grbuf: *mut libc::c_float, mut n: libc::c_int) {
 }
 pub unsafe fn L12_apply_scf_384(
     mut sci: *mut L12_scale_info,
-    mut scf: *const libc::c_float,
-    mut dst: *mut libc::c_float,
+    mut scf: *const f32,
+    mut dst: *mut f32,
 ) {
-    let mut i: libc::c_int = 0;
-    let mut k: libc::c_int = 0;
+    let mut i: i32 = 0;
+    let mut k: i32 = 0;
     ptr::copy_nonoverlapping(
-        dst.offset(((*sci).stereo_bands as libc::c_int * 18i32) as isize),
+        dst.offset(((*sci).stereo_bands as i32 * 18i32) as isize),
         dst.offset(576isize)
-            .offset(((*sci).stereo_bands as libc::c_int * 18i32) as isize),
-        ((((*sci).total_bands as libc::c_int - (*sci).stereo_bands as libc::c_int) * 18i32)
-            as libc::c_ulong) as usize,
+            .offset(((*sci).stereo_bands as i32 * 18i32) as isize),
+        ((((*sci).total_bands as i32 - (*sci).stereo_bands as i32) * 18i32) as u32) as usize,
     );
     i = 0i32;
-    while i < (*sci).total_bands as libc::c_int {
+    while i < (*sci).total_bands as i32 {
         k = 0i32;
         while k < 12i32 {
             *dst.offset((k + 0i32) as isize) *= *scf.offset(0isize);
@@ -997,46 +980,43 @@ pub unsafe fn L12_apply_scf_384(
     }
 }
 pub unsafe fn L12_dequantize_granule(
-    mut grbuf: *mut libc::c_float,
+    mut grbuf: *mut f32,
     mut bs: *mut bs_t,
     mut sci: *mut L12_scale_info,
-    mut group_size: libc::c_int,
-) -> libc::c_int {
-    let mut i: libc::c_int = 0;
-    let mut j: libc::c_int = 0;
-    let mut k: libc::c_int = 0;
-    let mut choff: libc::c_int = 576i32;
+    mut group_size: i32,
+) -> i32 {
+    let mut i: i32 = 0;
+    let mut j: i32 = 0;
+    let mut k: i32 = 0;
+    let mut choff: i32 = 576i32;
     j = 0i32;
     while j < 4i32 {
-        let mut dst: *mut libc::c_float = grbuf.offset((group_size * j) as isize);
+        let mut dst: *mut f32 = grbuf.offset((group_size * j) as isize);
         i = 0i32;
-        while i < 2i32 * (*sci).total_bands as libc::c_int {
-            let mut ba: libc::c_int = (*sci).bitalloc[i as usize] as libc::c_int;
+        while i < 2i32 * (*sci).total_bands as i32 {
+            let mut ba: i32 = (*sci).bitalloc[i as usize] as i32;
             if ba != 0i32 {
                 if ba < 17i32 {
-                    let mut half: libc::c_int = (1i32 << ba - 1i32) - 1i32;
+                    let mut half: i32 = (1i32 << ba - 1i32) - 1i32;
                     k = 0i32;
                     while k < group_size {
-                        *dst.offset(k as isize) =
-                            (get_bits(bs, ba) as libc::c_int - half) as libc::c_float;
+                        *dst.offset(k as isize) = (get_bits(bs, ba) as i32 - half) as f32;
                         k += 1
                     }
                 } else {
                     /* 3, 5, 9 */
-                    let mut mod_0: libc::c_uint = ((2i32 << ba - 17i32) + 1i32) as libc::c_uint;
+                    let mut mod_0: u32 = ((2i32 << ba - 17i32) + 1i32) as u32;
                     /* 5, 7, 10 */
-                    let mut code: libc::c_uint = get_bits(
+                    let mut code: u32 = get_bits(
                         bs,
-                        mod_0
-                            .wrapping_add(2i32 as libc::c_uint)
-                            .wrapping_sub(mod_0 >> 3i32) as libc::c_int,
+                        mod_0.wrapping_add(2i32 as u32).wrapping_sub(mod_0 >> 3i32) as i32,
                     );
                     k = 0i32;
                     while k < group_size {
-                        *dst.offset(k as isize) =
-                            code.wrapping_rem(mod_0)
-                                .wrapping_sub(mod_0.wrapping_div(2i32 as libc::c_uint))
-                                as libc::c_int as libc::c_float;
+                        *dst.offset(k as isize) = code
+                            .wrapping_rem(mod_0)
+                            .wrapping_sub(mod_0.wrapping_div(2i32 as u32))
+                            as i32 as f32;
                         k += 1;
                         code = code.wrapping_div(mod_0)
                     }
@@ -1050,11 +1030,11 @@ pub unsafe fn L12_dequantize_granule(
     }
     return group_size * 4i32;
 }
-pub unsafe fn get_bits(mut bs: *mut bs_t, mut n: libc::c_int) -> uint32_t {
+pub unsafe fn get_bits(mut bs: *mut bs_t, mut n: i32) -> uint32_t {
     let mut next: uint32_t = 0;
     let mut cache: uint32_t = 0i32 as uint32_t;
     let mut s: uint32_t = ((*bs).pos & 7i32) as uint32_t;
-    let mut shl: libc::c_int = (n as libc::c_uint).wrapping_add(s) as libc::c_int;
+    let mut shl: i32 = (n as u32).wrapping_add(s) as i32;
     let mut p: *const uint8_t = (*bs).buf.offset(((*bs).pos >> 3i32) as isize);
     (*bs).pos += n;
     if (*bs).pos > (*bs).limit {
@@ -1062,7 +1042,7 @@ pub unsafe fn get_bits(mut bs: *mut bs_t, mut n: libc::c_int) -> uint32_t {
     } else {
         let fresh16 = p;
         p = p.offset(1);
-        next = (*fresh16 as libc::c_int & 255i32 >> s) as uint32_t;
+        next = (*fresh16 as i32 & 255i32 >> s) as uint32_t;
         loop {
             shl -= 8i32;
             if !(shl > 0i32) {
@@ -1176,43 +1156,43 @@ pub unsafe fn L12_read_scale_info(
         16i32 as uint8_t,
     ];
     let mut subband_alloc: *const L12_subband_alloc_t = L12_subband_alloc_table(hdr, sci);
-    let mut i: libc::c_int = 0;
-    let mut k: libc::c_int = 0i32;
-    let mut ba_bits: libc::c_int = 0i32;
+    let mut i: i32 = 0;
+    let mut k: i32 = 0i32;
+    let mut ba_bits: i32 = 0i32;
     let mut ba_code_tab: *const uint8_t = g_bitalloc_code_tab.as_ptr();
     i = 0i32;
-    while i < (*sci).total_bands as libc::c_int {
+    while i < (*sci).total_bands as i32 {
         let mut ba: uint8_t = 0;
         if i == k {
-            k += (*subband_alloc).band_count as libc::c_int;
-            ba_bits = (*subband_alloc).code_tab_width as libc::c_int;
+            k += (*subband_alloc).band_count as i32;
+            ba_bits = (*subband_alloc).code_tab_width as i32;
             ba_code_tab = g_bitalloc_code_tab
                 .as_ptr()
-                .offset((*subband_alloc).tab_offset as libc::c_int as isize);
+                .offset((*subband_alloc).tab_offset as i32 as isize);
             subband_alloc = subband_alloc.offset(1isize)
         }
         ba = *ba_code_tab.offset(get_bits(bs, ba_bits) as isize);
         (*sci).bitalloc[(2i32 * i) as usize] = ba;
-        if i < (*sci).stereo_bands as libc::c_int {
+        if i < (*sci).stereo_bands as i32 {
             ba = *ba_code_tab.offset(get_bits(bs, ba_bits) as isize)
         }
-        (*sci).bitalloc[(2i32 * i + 1i32) as usize] = (if 0 != (*sci).stereo_bands as libc::c_int {
-            ba as libc::c_int
+        (*sci).bitalloc[(2i32 * i + 1i32) as usize] = (if 0 != (*sci).stereo_bands as i32 {
+            ba as i32
         } else {
             0i32
         }) as uint8_t;
         i += 1
     }
     i = 0i32;
-    while i < 2i32 * (*sci).total_bands as libc::c_int {
-        (*sci).scfcod[i as usize] = (if 0 != (*sci).bitalloc[i as usize] as libc::c_int {
-            if *hdr.offset(1isize) as libc::c_int & 6i32 == 6i32 {
-                2i32 as libc::c_uint
+    while i < 2i32 * (*sci).total_bands as i32 {
+        (*sci).scfcod[i as usize] = (if 0 != (*sci).bitalloc[i as usize] as i32 {
+            if *hdr.offset(1isize) as i32 & 6i32 == 6i32 {
+                2i32 as u32
             } else {
                 get_bits(bs, 2i32)
             }
         } else {
-            6i32 as libc::c_uint
+            6i32 as u32
         }) as uint8_t;
         i += 1
     }
@@ -1220,11 +1200,11 @@ pub unsafe fn L12_read_scale_info(
         bs,
         (*sci).bitalloc.as_mut_ptr(),
         (*sci).scfcod.as_mut_ptr(),
-        (*sci).total_bands as libc::c_int * 2i32,
+        (*sci).total_bands as i32 * 2i32,
         (*sci).scf.as_mut_ptr(),
     );
-    i = (*sci).stereo_bands as libc::c_int;
-    while i < (*sci).total_bands as libc::c_int {
+    i = (*sci).stereo_bands as i32;
+    while i < (*sci).total_bands as i32 {
         (*sci).bitalloc[(2i32 * i + 1i32) as usize] = 0i32 as uint8_t;
         i += 1
     }
@@ -1233,85 +1213,85 @@ pub unsafe fn L12_read_scalefactors(
     mut bs: *mut bs_t,
     mut pba: *mut uint8_t,
     mut scfcod: *mut uint8_t,
-    mut bands: libc::c_int,
-    mut scf: *mut libc::c_float,
+    mut bands: i32,
+    mut scf: *mut f32,
 ) {
-    let mut b: libc::c_int = 0;
-    static mut g_deq_L12: [libc::c_float; 54] = [
-        9.5367431640625e-7f32 / 3i32 as libc::c_float,
-        7.569317972411227e-7f32 / 3i32 as libc::c_float,
-        6.007771844451781e-7f32 / 3i32 as libc::c_float,
-        9.5367431640625e-7f32 / 7i32 as libc::c_float,
-        7.569317972411227e-7f32 / 7i32 as libc::c_float,
-        6.007771844451781e-7f32 / 7i32 as libc::c_float,
-        9.5367431640625e-7f32 / 15i32 as libc::c_float,
-        7.569317972411227e-7f32 / 15i32 as libc::c_float,
-        6.007771844451781e-7f32 / 15i32 as libc::c_float,
-        9.5367431640625e-7f32 / 31i32 as libc::c_float,
-        7.569317972411227e-7f32 / 31i32 as libc::c_float,
-        6.007771844451781e-7f32 / 31i32 as libc::c_float,
-        9.5367431640625e-7f32 / 63i32 as libc::c_float,
-        7.569317972411227e-7f32 / 63i32 as libc::c_float,
-        6.007771844451781e-7f32 / 63i32 as libc::c_float,
-        9.5367431640625e-7f32 / 127i32 as libc::c_float,
-        7.569317972411227e-7f32 / 127i32 as libc::c_float,
-        6.007771844451781e-7f32 / 127i32 as libc::c_float,
-        9.5367431640625e-7f32 / 255i32 as libc::c_float,
-        7.569317972411227e-7f32 / 255i32 as libc::c_float,
-        6.007771844451781e-7f32 / 255i32 as libc::c_float,
-        9.5367431640625e-7f32 / 511i32 as libc::c_float,
-        7.569317972411227e-7f32 / 511i32 as libc::c_float,
-        6.007771844451781e-7f32 / 511i32 as libc::c_float,
-        9.5367431640625e-7f32 / 1023i32 as libc::c_float,
-        7.569317972411227e-7f32 / 1023i32 as libc::c_float,
-        6.007771844451781e-7f32 / 1023i32 as libc::c_float,
-        9.5367431640625e-7f32 / 2047i32 as libc::c_float,
-        7.569317972411227e-7f32 / 2047i32 as libc::c_float,
-        6.007771844451781e-7f32 / 2047i32 as libc::c_float,
-        9.5367431640625e-7f32 / 4095i32 as libc::c_float,
-        7.569317972411227e-7f32 / 4095i32 as libc::c_float,
-        6.007771844451781e-7f32 / 4095i32 as libc::c_float,
-        9.5367431640625e-7f32 / 8191i32 as libc::c_float,
-        7.569317972411227e-7f32 / 8191i32 as libc::c_float,
-        6.007771844451781e-7f32 / 8191i32 as libc::c_float,
-        9.5367431640625e-7f32 / 16383i32 as libc::c_float,
-        7.569317972411227e-7f32 / 16383i32 as libc::c_float,
-        6.007771844451781e-7f32 / 16383i32 as libc::c_float,
-        9.5367431640625e-7f32 / 32767i32 as libc::c_float,
-        7.569317972411227e-7f32 / 32767i32 as libc::c_float,
-        6.007771844451781e-7f32 / 32767i32 as libc::c_float,
-        9.5367431640625e-7f32 / 65535i32 as libc::c_float,
-        7.569317972411227e-7f32 / 65535i32 as libc::c_float,
-        6.007771844451781e-7f32 / 65535i32 as libc::c_float,
-        9.5367431640625e-7f32 / 3i32 as libc::c_float,
-        7.569317972411227e-7f32 / 3i32 as libc::c_float,
-        6.007771844451781e-7f32 / 3i32 as libc::c_float,
-        9.5367431640625e-7f32 / 5i32 as libc::c_float,
-        7.569317972411227e-7f32 / 5i32 as libc::c_float,
-        6.007771844451781e-7f32 / 5i32 as libc::c_float,
-        9.5367431640625e-7f32 / 9i32 as libc::c_float,
-        7.569317972411227e-7f32 / 9i32 as libc::c_float,
-        6.007771844451781e-7f32 / 9i32 as libc::c_float,
+    let mut b: i32 = 0;
+    static mut g_deq_L12: [f32; 54] = [
+        9.5367431640625e-7f32 / 3i32 as f32,
+        7.569317972411227e-7f32 / 3i32 as f32,
+        6.007771844451781e-7f32 / 3i32 as f32,
+        9.5367431640625e-7f32 / 7i32 as f32,
+        7.569317972411227e-7f32 / 7i32 as f32,
+        6.007771844451781e-7f32 / 7i32 as f32,
+        9.5367431640625e-7f32 / 15i32 as f32,
+        7.569317972411227e-7f32 / 15i32 as f32,
+        6.007771844451781e-7f32 / 15i32 as f32,
+        9.5367431640625e-7f32 / 31i32 as f32,
+        7.569317972411227e-7f32 / 31i32 as f32,
+        6.007771844451781e-7f32 / 31i32 as f32,
+        9.5367431640625e-7f32 / 63i32 as f32,
+        7.569317972411227e-7f32 / 63i32 as f32,
+        6.007771844451781e-7f32 / 63i32 as f32,
+        9.5367431640625e-7f32 / 127i32 as f32,
+        7.569317972411227e-7f32 / 127i32 as f32,
+        6.007771844451781e-7f32 / 127i32 as f32,
+        9.5367431640625e-7f32 / 255i32 as f32,
+        7.569317972411227e-7f32 / 255i32 as f32,
+        6.007771844451781e-7f32 / 255i32 as f32,
+        9.5367431640625e-7f32 / 511i32 as f32,
+        7.569317972411227e-7f32 / 511i32 as f32,
+        6.007771844451781e-7f32 / 511i32 as f32,
+        9.5367431640625e-7f32 / 1023i32 as f32,
+        7.569317972411227e-7f32 / 1023i32 as f32,
+        6.007771844451781e-7f32 / 1023i32 as f32,
+        9.5367431640625e-7f32 / 2047i32 as f32,
+        7.569317972411227e-7f32 / 2047i32 as f32,
+        6.007771844451781e-7f32 / 2047i32 as f32,
+        9.5367431640625e-7f32 / 4095i32 as f32,
+        7.569317972411227e-7f32 / 4095i32 as f32,
+        6.007771844451781e-7f32 / 4095i32 as f32,
+        9.5367431640625e-7f32 / 8191i32 as f32,
+        7.569317972411227e-7f32 / 8191i32 as f32,
+        6.007771844451781e-7f32 / 8191i32 as f32,
+        9.5367431640625e-7f32 / 16383i32 as f32,
+        7.569317972411227e-7f32 / 16383i32 as f32,
+        6.007771844451781e-7f32 / 16383i32 as f32,
+        9.5367431640625e-7f32 / 32767i32 as f32,
+        7.569317972411227e-7f32 / 32767i32 as f32,
+        6.007771844451781e-7f32 / 32767i32 as f32,
+        9.5367431640625e-7f32 / 65535i32 as f32,
+        7.569317972411227e-7f32 / 65535i32 as f32,
+        6.007771844451781e-7f32 / 65535i32 as f32,
+        9.5367431640625e-7f32 / 3i32 as f32,
+        7.569317972411227e-7f32 / 3i32 as f32,
+        6.007771844451781e-7f32 / 3i32 as f32,
+        9.5367431640625e-7f32 / 5i32 as f32,
+        7.569317972411227e-7f32 / 5i32 as f32,
+        6.007771844451781e-7f32 / 5i32 as f32,
+        9.5367431640625e-7f32 / 9i32 as f32,
+        7.569317972411227e-7f32 / 9i32 as f32,
+        6.007771844451781e-7f32 / 9i32 as f32,
     ];
-    let mut i: libc::c_int = 0;
-    let mut m: libc::c_int = 0;
+    let mut i: i32 = 0;
+    let mut m: i32 = 0;
     i = 0i32;
     while i < bands {
-        let mut s: libc::c_float = 0i32 as libc::c_float;
+        let mut s: f32 = 0i32 as f32;
         let fresh18 = pba;
         pba = pba.offset(1);
-        let mut ba: libc::c_int = *fresh18 as libc::c_int;
-        let mut mask: libc::c_int = if 0 != ba {
-            4i32 + (19i32 >> *scfcod.offset(i as isize) as libc::c_int & 3i32)
+        let mut ba: i32 = *fresh18 as i32;
+        let mut mask: i32 = if 0 != ba {
+            4i32 + (19i32 >> *scfcod.offset(i as isize) as i32 & 3i32)
         } else {
             0i32
         };
         m = 4i32;
         while 0 != m {
             if 0 != mask & m {
-                b = get_bits(bs, 6i32) as libc::c_int;
+                b = get_bits(bs, 6i32) as i32;
                 s = g_deq_L12[(ba * 3i32 - 6i32 + b % 3i32) as usize]
-                    * (1i32 << 21i32 >> b / 3i32) as libc::c_float
+                    * (1i32 << 21i32 >> b / 3i32) as f32
             }
             let fresh19 = scf;
             scf = scf.offset(1);
@@ -1360,19 +1340,19 @@ pub unsafe fn L12_subband_alloc_table(
         },
     ];
     let mut alloc: *const L12_subband_alloc_t = 0 as *const L12_subband_alloc_t;
-    let mut mode: libc::c_int = *hdr.offset(3isize) as libc::c_int >> 6i32 & 3i32;
-    let mut nbands: libc::c_int = 0;
-    let mut stereo_bands: libc::c_int = if mode == 3i32 {
+    let mut mode: i32 = *hdr.offset(3isize) as i32 >> 6i32 & 3i32;
+    let mut nbands: i32 = 0;
+    let mut stereo_bands: i32 = if mode == 3i32 {
         0i32
     } else if mode == 1i32 {
-        ((*hdr.offset(3isize) as libc::c_int >> 4i32 & 3i32) << 2i32) + 4i32
+        ((*hdr.offset(3isize) as i32 >> 4i32 & 3i32) << 2i32) + 4i32
     } else {
         32i32
     };
-    if *hdr.offset(1isize) as libc::c_int & 6i32 == 6i32 {
+    if *hdr.offset(1isize) as i32 & 6i32 == 6i32 {
         alloc = g_alloc_L1.as_ptr();
         nbands = 32i32
-    } else if 0 == *hdr.offset(1isize) as libc::c_int & 0x8i32 {
+    } else if 0 == *hdr.offset(1isize) as i32 & 0x8i32 {
         alloc = g_alloc_L2M2.as_ptr();
         nbands = 30i32
     } else {
@@ -1398,18 +1378,18 @@ pub unsafe fn L12_subband_alloc_table(
                 band_count: 7i32 as uint8_t,
             },
         ];
-        let mut sample_rate_idx: libc::c_int = *hdr.offset(2isize) as libc::c_int >> 2i32 & 3i32;
-        let mut kbps: libc::c_uint = hdr_bitrate_kbps(hdr) >> (mode != 3i32) as libc::c_int;
+        let mut sample_rate_idx: i32 = *hdr.offset(2isize) as i32 >> 2i32 & 3i32;
+        let mut kbps: u32 = hdr_bitrate_kbps(hdr) >> (mode != 3i32) as i32;
         /* free-format */
         if 0 == kbps {
-            kbps = 192i32 as libc::c_uint
+            kbps = 192i32 as u32
         }
         alloc = g_alloc_L2M1.as_ptr();
         nbands = 27i32;
-        if kbps < 56i32 as libc::c_uint {
+        if kbps < 56i32 as u32 {
             alloc = g_alloc_L2M1_lowrate.as_ptr();
             nbands = if sample_rate_idx == 2i32 { 12i32 } else { 8i32 }
-        } else if kbps >= 96i32 as libc::c_uint && sample_rate_idx != 1i32 {
+        } else if kbps >= 96i32 as u32 && sample_rate_idx != 1i32 {
             nbands = 30i32
         }
     }
@@ -1421,7 +1401,7 @@ pub unsafe fn L12_subband_alloc_table(
     }) as uint8_t;
     return alloc;
 }
-pub unsafe fn hdr_bitrate_kbps(mut h: *const uint8_t) -> libc::c_uint {
+pub unsafe fn hdr_bitrate_kbps(mut h: *const uint8_t) -> u32 {
     static mut halfrate: [[[uint8_t; 15]; 3]; 2] = [
         [
             [
@@ -1531,17 +1511,15 @@ pub unsafe fn hdr_bitrate_kbps(mut h: *const uint8_t) -> libc::c_uint {
         ],
     ];
     return (2i32
-        * halfrate[(0 != *h.offset(1isize) as libc::c_int & 0x8i32) as libc::c_int as usize]
-            [((*h.offset(1isize) as libc::c_int >> 1i32 & 3i32) - 1i32) as usize]
-            [(*h.offset(2isize) as libc::c_int >> 4i32) as usize] as libc::c_int)
-        as libc::c_uint;
+        * halfrate[(0 != *h.offset(1isize) as i32 & 0x8i32) as i32 as usize]
+            [((*h.offset(1isize) as i32 >> 1i32 & 3i32) - 1i32) as usize]
+            [(*h.offset(2isize) as i32 >> 4i32) as usize] as i32) as u32;
 }
 pub unsafe fn L3_save_reservoir(mut h: *mut mp3dec_t, mut s: *mut mp3dec_scratch_t) {
-    let mut pos: libc::c_int =
-        (((*s).bs.pos + 7i32) as libc::c_uint).wrapping_div(8u32) as libc::c_int;
-    let mut remains: libc::c_int = ((*s).bs.limit as libc::c_uint)
+    let mut pos: i32 = (((*s).bs.pos + 7i32) as u32).wrapping_div(8u32) as i32;
+    let mut remains: i32 = ((*s).bs.limit as u32)
         .wrapping_div(8u32)
-        .wrapping_sub(pos as libc::c_uint) as libc::c_int;
+        .wrapping_sub(pos as u32) as i32;
     if remains > 511i32 {
         pos += remains - 511i32;
         remains = 511i32
@@ -1559,13 +1537,13 @@ pub unsafe fn L3_decode(
     mut h: *mut mp3dec_t,
     mut s: *mut mp3dec_scratch_t,
     mut gr_info: *mut L3_gr_info_t,
-    mut nch: libc::c_int,
+    mut nch: i32,
 ) {
-    let mut ch: libc::c_int = 0;
+    let mut ch: i32 = 0;
     ch = 0i32;
     while ch < nch {
-        let mut layer3gr_limit: libc::c_int =
-            (*s).bs.pos + (*gr_info.offset(ch as isize)).part_23_length as libc::c_int;
+        let mut layer3gr_limit: i32 =
+            (*s).bs.pos + (*gr_info.offset(ch as isize)).part_23_length as i32;
         L3_decode_scalefactors(
             (*h).header.as_mut_ptr(),
             (*s).ist_pos[ch as usize].as_mut_ptr(),
@@ -1583,29 +1561,28 @@ pub unsafe fn L3_decode(
         );
         ch += 1
     }
-    if 0 != (*h).header[3usize] as libc::c_int & 0x10i32 {
+    if 0 != (*h).header[3usize] as i32 & 0x10i32 {
         L3_intensity_stereo(
             (*s).grbuf[0usize].as_mut_ptr(),
             (*s).ist_pos[1usize].as_mut_ptr(),
             gr_info,
             (*h).header.as_mut_ptr(),
         );
-    } else if (*h).header[3usize] as libc::c_int & 0xe0i32 == 0x60i32 {
+    } else if (*h).header[3usize] as i32 & 0xe0i32 == 0x60i32 {
         L3_midside_stereo((*s).grbuf[0usize].as_mut_ptr(), 576i32);
     }
     ch = 0i32;
     while ch < nch {
-        let mut aa_bands: libc::c_int = 31i32;
-        let mut n_long_bands: libc::c_int = if 0 != (*gr_info).mixed_block_flag as libc::c_int {
+        let mut aa_bands: i32 = 31i32;
+        let mut n_long_bands: i32 = if 0 != (*gr_info).mixed_block_flag as i32 {
             2i32
         } else {
             0i32
-        } << (((*h).header[2usize] as libc::c_int >> 2i32
-            & 3i32)
-            + (((*h).header[1usize] as libc::c_int >> 3i32 & 1i32)
-                + ((*h).header[1usize] as libc::c_int >> 4i32 & 1i32))
+        } << (((*h).header[2usize] as i32 >> 2i32 & 3i32)
+            + (((*h).header[1usize] as i32 >> 3i32 & 1i32)
+                + ((*h).header[1usize] as i32 >> 4i32 & 1i32))
                 * 3i32
-            == 2i32) as libc::c_int;
+            == 2i32) as i32;
         if 0 != (*gr_info).n_short_sfb {
             aa_bands = n_long_bands - 1i32;
             L3_reorder(
@@ -1615,24 +1592,24 @@ pub unsafe fn L3_decode(
                 (*s).syn[0usize].as_mut_ptr(),
                 (*gr_info)
                     .sfbtab
-                    .offset((*gr_info).n_long_sfb as libc::c_int as isize),
+                    .offset((*gr_info).n_long_sfb as i32 as isize),
             );
         }
         L3_antialias((*s).grbuf[ch as usize].as_mut_ptr(), aa_bands);
         L3_imdct_gr(
             (*s).grbuf[ch as usize].as_mut_ptr(),
             (*h).mdct_overlap[ch as usize].as_mut_ptr(),
-            (*gr_info).block_type as libc::c_uint,
-            n_long_bands as libc::c_uint,
+            (*gr_info).block_type as u32,
+            n_long_bands as u32,
         );
         L3_change_sign((*s).grbuf[ch as usize].as_mut_ptr());
         ch += 1;
         gr_info = gr_info.offset(1isize)
     }
 }
-pub unsafe fn L3_change_sign(mut grbuf: *mut libc::c_float) {
-    let mut b: libc::c_int = 0;
-    let mut i: libc::c_int = 0;
+pub unsafe fn L3_change_sign(mut grbuf: *mut f32) {
+    let mut b: i32 = 0;
+    let mut i: i32 = 0;
     b = 0i32;
     grbuf = grbuf.offset(18isize);
     while b < 32i32 {
@@ -1646,12 +1623,12 @@ pub unsafe fn L3_change_sign(mut grbuf: *mut libc::c_float) {
     }
 }
 pub unsafe fn L3_imdct_gr(
-    mut grbuf: *mut libc::c_float,
-    mut overlap: *mut libc::c_float,
-    mut block_type: libc::c_uint,
-    mut n_long_bands: libc::c_uint,
+    mut grbuf: *mut f32,
+    mut overlap: *mut f32,
+    mut block_type: u32,
+    mut n_long_bands: u32,
 ) {
-    static mut g_mdct_window: [[libc::c_float; 18]; 2] = [
+    static mut g_mdct_window: [[f32; 18]; 2] = [
         [
             0.9990482330322266f32,
             0.9914448857307434f32,
@@ -1673,21 +1650,21 @@ pub unsafe fn L3_imdct_gr(
             0.6755902171134949f32,
         ],
         [
-            1i32 as libc::c_float,
-            1i32 as libc::c_float,
-            1i32 as libc::c_float,
-            1i32 as libc::c_float,
-            1i32 as libc::c_float,
-            1i32 as libc::c_float,
+            1i32 as f32,
+            1i32 as f32,
+            1i32 as f32,
+            1i32 as f32,
+            1i32 as f32,
+            1i32 as f32,
             0.9914448857307434f32,
             0.9238795042037964f32,
             0.7933533191680908f32,
-            0i32 as libc::c_float,
-            0i32 as libc::c_float,
-            0i32 as libc::c_float,
-            0i32 as libc::c_float,
-            0i32 as libc::c_float,
-            0i32 as libc::c_float,
+            0i32 as f32,
+            0i32 as f32,
+            0i32 as f32,
+            0i32 as f32,
+            0i32 as f32,
+            0i32 as f32,
             0.13052618503570558f32,
             0.3826834261417389f32,
             0.6087614297866821f32,
@@ -1698,35 +1675,35 @@ pub unsafe fn L3_imdct_gr(
             grbuf,
             overlap,
             g_mdct_window[0usize].as_ptr(),
-            n_long_bands as libc::c_int,
+            n_long_bands as i32,
         );
-        grbuf = grbuf.offset((18i32 as libc::c_uint).wrapping_mul(n_long_bands) as isize);
-        overlap = overlap.offset((9i32 as libc::c_uint).wrapping_mul(n_long_bands) as isize)
+        grbuf = grbuf.offset((18i32 as u32).wrapping_mul(n_long_bands) as isize);
+        overlap = overlap.offset((9i32 as u32).wrapping_mul(n_long_bands) as isize)
     }
-    if block_type == 2i32 as libc::c_uint {
+    if block_type == 2i32 as u32 {
         L3_imdct_short(
             grbuf,
             overlap,
-            (32i32 as libc::c_uint).wrapping_sub(n_long_bands) as libc::c_int,
+            (32i32 as u32).wrapping_sub(n_long_bands) as i32,
         );
     } else {
         L3_imdct36(
             grbuf,
             overlap,
-            g_mdct_window[(block_type == 3i32 as libc::c_uint) as libc::c_int as usize].as_ptr(),
-            (32i32 as libc::c_uint).wrapping_sub(n_long_bands) as libc::c_int,
+            g_mdct_window[(block_type == 3i32 as u32) as i32 as usize].as_ptr(),
+            (32i32 as u32).wrapping_sub(n_long_bands) as i32,
         );
     };
 }
 pub unsafe fn L3_imdct36(
-    mut grbuf: *mut libc::c_float,
-    mut overlap: *mut libc::c_float,
-    mut window: *const libc::c_float,
-    mut nbands: libc::c_int,
+    mut grbuf: *mut f32,
+    mut overlap: *mut f32,
+    mut window: *const f32,
+    mut nbands: i32,
 ) {
-    let mut i: libc::c_int = 0;
-    let mut j: libc::c_int = 0;
-    static mut g_twid9: [libc::c_float; 18] = [
+    let mut i: i32 = 0;
+    let mut j: i32 = 0;
+    static mut g_twid9: [f32; 18] = [
         0.7372773289680481f32,
         0.7933533191680908f32,
         0.843391478061676f32,
@@ -1748,8 +1725,8 @@ pub unsafe fn L3_imdct36(
     ];
     j = 0i32;
     while j < nbands {
-        let mut co: [libc::c_float; 9] = [0.; 9];
-        let mut si: [libc::c_float; 9] = [0.; 9];
+        let mut co: [f32; 9] = [0.; 9];
+        let mut si: [f32; 9] = [0.; 9];
         co[0usize] = -*grbuf.offset(0isize);
         si[0usize] = *grbuf.offset(17isize);
         i = 0i32;
@@ -1773,8 +1750,8 @@ pub unsafe fn L3_imdct36(
         i = 0i32;
         /* HAVE_SIMD */
         while i < 9i32 {
-            let mut ovl: libc::c_float = *overlap.offset(i as isize);
-            let mut sum: libc::c_float = co[i as usize] * g_twid9[(9i32 + i) as usize]
+            let mut ovl: f32 = *overlap.offset(i as isize);
+            let mut sum: f32 = co[i as usize] * g_twid9[(9i32 + i) as usize]
                 + si[i as usize] * g_twid9[(0i32 + i) as usize];
             *overlap.offset(i as isize) = co[i as usize] * g_twid9[(0i32 + i) as usize]
                 - si[i as usize] * g_twid9[(9i32 + i) as usize];
@@ -1790,19 +1767,19 @@ pub unsafe fn L3_imdct36(
     }
 }
 /* MINIMP3_ONLY_SIMD */
-pub unsafe fn L3_dct3_9(mut y: *mut libc::c_float) {
-    let mut s0: libc::c_float = 0.;
-    let mut s1: libc::c_float = 0.;
-    let mut s2: libc::c_float = 0.;
-    let mut s3: libc::c_float = 0.;
-    let mut s4: libc::c_float = 0.;
-    let mut s5: libc::c_float = 0.;
-    let mut s6: libc::c_float = 0.;
-    let mut s7: libc::c_float = 0.;
-    let mut s8: libc::c_float = 0.;
-    let mut t0: libc::c_float = 0.;
-    let mut t2: libc::c_float = 0.;
-    let mut t4: libc::c_float = 0.;
+pub unsafe fn L3_dct3_9(mut y: *mut f32) {
+    let mut s0: f32 = 0.;
+    let mut s1: f32 = 0.;
+    let mut s2: f32 = 0.;
+    let mut s3: f32 = 0.;
+    let mut s4: f32 = 0.;
+    let mut s5: f32 = 0.;
+    let mut s6: f32 = 0.;
+    let mut s7: f32 = 0.;
+    let mut s8: f32 = 0.;
+    let mut t0: f32 = 0.;
+    let mut t2: f32 = 0.;
+    let mut t4: f32 = 0.;
     s0 = *y.offset(0isize);
     s2 = *y.offset(2isize);
     s4 = *y.offset(4isize);
@@ -1840,13 +1817,9 @@ pub unsafe fn L3_dct3_9(mut y: *mut libc::c_float) {
     *y.offset(7isize) = s2 - s1;
     *y.offset(8isize) = s4 + s7;
 }
-pub unsafe fn L3_imdct_short(
-    mut grbuf: *mut libc::c_float,
-    mut overlap: *mut libc::c_float,
-    mut nbands: libc::c_int,
-) {
+pub unsafe fn L3_imdct_short(mut grbuf: *mut f32, mut overlap: *mut f32, mut nbands: i32) {
     while nbands > 0i32 {
-        let mut tmp: [libc::c_float; 18] = [0.; 18];
+        let mut tmp: [f32; 18] = [0.; 18];
         ptr::copy_nonoverlapping(grbuf, tmp.as_mut_ptr(), 18);
         ptr::copy_nonoverlapping(overlap, grbuf, 6);
         L3_imdct12(
@@ -1869,12 +1842,8 @@ pub unsafe fn L3_imdct_short(
         grbuf = grbuf.offset(18isize)
     }
 }
-pub unsafe fn L3_imdct12(
-    mut x: *mut libc::c_float,
-    mut dst: *mut libc::c_float,
-    mut overlap: *mut libc::c_float,
-) {
-    static mut g_twid3: [libc::c_float; 6] = [
+pub unsafe fn L3_imdct12(mut x: *mut f32, mut dst: *mut f32, mut overlap: *mut f32) {
+    static mut g_twid3: [f32; 6] = [
         0.7933533191680908f32,
         0.9238795042037964f32,
         0.9914448857307434f32,
@@ -1882,9 +1851,9 @@ pub unsafe fn L3_imdct12(
         0.3826834261417389f32,
         0.13052618503570558f32,
     ];
-    let mut co: [libc::c_float; 3] = [0.; 3];
-    let mut si: [libc::c_float; 3] = [0.; 3];
-    let mut i: libc::c_int = 0;
+    let mut co: [f32; 3] = [0.; 3];
+    let mut si: [f32; 3] = [0.; 3];
+    let mut i: i32 = 0;
     L3_idct3(
         -*x.offset(0isize),
         *x.offset(6isize) + *x.offset(3isize),
@@ -1900,8 +1869,8 @@ pub unsafe fn L3_imdct12(
     si[1usize] = -si[1usize];
     i = 0i32;
     while i < 3i32 {
-        let mut ovl: libc::c_float = *overlap.offset(i as isize);
-        let mut sum: libc::c_float = co[i as usize] * g_twid3[(3i32 + i) as usize]
+        let mut ovl: f32 = *overlap.offset(i as isize);
+        let mut sum: f32 = co[i as usize] * g_twid3[(3i32 + i) as usize]
             + si[i as usize] * g_twid3[(0i32 + i) as usize];
         *overlap.offset(i as isize) = co[i as usize] * g_twid3[(0i32 + i) as usize]
             - si[i as usize] * g_twid3[(3i32 + i) as usize];
@@ -1912,20 +1881,15 @@ pub unsafe fn L3_imdct12(
         i += 1
     }
 }
-pub unsafe fn L3_idct3(
-    mut x0: libc::c_float,
-    mut x1: libc::c_float,
-    mut x2: libc::c_float,
-    mut dst: *mut libc::c_float,
-) {
-    let mut m1: libc::c_float = x1 * 0.8660253882408142f32;
-    let mut a1: libc::c_float = x0 - x2 * 0.5f32;
+pub unsafe fn L3_idct3(mut x0: f32, mut x1: f32, mut x2: f32, mut dst: *mut f32) {
+    let mut m1: f32 = x1 * 0.8660253882408142f32;
+    let mut a1: f32 = x0 - x2 * 0.5f32;
     *dst.offset(1isize) = x0 + x2;
     *dst.offset(0isize) = a1 + m1;
     *dst.offset(2isize) = a1 - m1;
 }
-pub unsafe fn L3_antialias(mut grbuf: *mut libc::c_float, mut nbands: libc::c_int) {
-    static mut g_aa: [[libc::c_float; 8]; 2] = [
+pub unsafe fn L3_antialias(mut grbuf: *mut f32, mut nbands: i32) {
+    static mut g_aa: [[f32; 8]; 2] = [
         [
             0.8574929237365723f32,
             0.881742000579834f32,
@@ -1948,11 +1912,11 @@ pub unsafe fn L3_antialias(mut grbuf: *mut libc::c_float, mut nbands: libc::c_in
         ],
     ];
     while nbands > 0i32 {
-        let mut i: libc::c_int = 0i32;
+        let mut i: i32 = 0i32;
         /* HAVE_SIMD */
         while i < 8i32 {
-            let mut u: libc::c_float = *grbuf.offset((18i32 + i) as isize);
-            let mut d: libc::c_float = *grbuf.offset((17i32 - i) as isize);
+            let mut u: f32 = *grbuf.offset((18i32 + i) as isize);
+            let mut d: f32 = *grbuf.offset((17i32 - i) as isize);
             *grbuf.offset((18i32 + i) as isize) =
                 u * g_aa[0usize][i as usize] - d * g_aa[1usize][i as usize];
             *grbuf.offset((17i32 - i) as isize) =
@@ -1963,17 +1927,13 @@ pub unsafe fn L3_antialias(mut grbuf: *mut libc::c_float, mut nbands: libc::c_in
         grbuf = grbuf.offset(18isize)
     }
 }
-pub unsafe fn L3_reorder(
-    mut grbuf: *mut libc::c_float,
-    mut scratch: *mut libc::c_float,
-    mut sfb: *const uint8_t,
-) {
-    let mut i: libc::c_int = 0;
-    let mut len: libc::c_int = 0;
-    let mut src: *mut libc::c_float = grbuf;
-    let mut dst: *mut libc::c_float = scratch;
+pub unsafe fn L3_reorder(mut grbuf: *mut f32, mut scratch: *mut f32, mut sfb: *const uint8_t) {
+    let mut i: i32 = 0;
+    let mut len: i32 = 0;
+    let mut src: *mut f32 = grbuf;
+    let mut dst: *mut f32 = scratch;
     loop {
-        len = *sfb as libc::c_int;
+        len = *sfb as i32;
         if !(0i32 != len) {
             break;
         }
@@ -1996,28 +1956,28 @@ pub unsafe fn L3_reorder(
     }
     ptr::copy_nonoverlapping(scratch, grbuf, wrapping_offset_from(dst, scratch) as usize);
 }
-pub unsafe fn L3_midside_stereo(mut left: *mut libc::c_float, mut n: libc::c_int) {
-    let mut i: libc::c_int = 0i32;
-    let mut right: *mut libc::c_float = left.offset(576isize);
+pub unsafe fn L3_midside_stereo(mut left: *mut f32, mut n: i32) {
+    let mut i: i32 = 0i32;
+    let mut right: *mut f32 = left.offset(576isize);
     /* HAVE_SIMD */
     while i < n {
-        let mut a: libc::c_float = *left.offset(i as isize);
-        let mut b: libc::c_float = *right.offset(i as isize);
+        let mut a: f32 = *left.offset(i as isize);
+        let mut b: f32 = *right.offset(i as isize);
         *left.offset(i as isize) = a + b;
         *right.offset(i as isize) = a - b;
         i += 1
     }
 }
 pub unsafe fn L3_intensity_stereo(
-    mut left: *mut libc::c_float,
+    mut left: *mut f32,
     mut ist_pos: *mut uint8_t,
     mut gr: *const L3_gr_info_t,
     mut hdr: *const uint8_t,
 ) {
-    let mut max_band: [libc::c_int; 3] = [0; 3];
-    let mut n_sfb: libc::c_int = (*gr).n_long_sfb as libc::c_int + (*gr).n_short_sfb as libc::c_int;
-    let mut i: libc::c_int = 0;
-    let mut max_blocks: libc::c_int = if 0 != (*gr).n_short_sfb as libc::c_int {
+    let mut max_band: [i32; 3] = [0; 3];
+    let mut n_sfb: i32 = (*gr).n_long_sfb as i32 + (*gr).n_short_sfb as i32;
+    let mut i: i32 = 0;
+    let mut max_blocks: i32 = if 0 != (*gr).n_short_sfb as i32 {
         3i32
     } else {
         1i32
@@ -2046,17 +2006,17 @@ pub unsafe fn L3_intensity_stereo(
     }
     i = 0i32;
     while i < max_blocks {
-        let mut default_pos: libc::c_int = if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
+        let mut default_pos: i32 = if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
             3i32
         } else {
             0i32
         };
-        let mut itop: libc::c_int = n_sfb - max_blocks + i;
-        let mut prev: libc::c_int = itop - max_blocks;
+        let mut itop: i32 = n_sfb - max_blocks + i;
+        let mut prev: i32 = itop - max_blocks;
         *ist_pos.offset(itop as isize) = (if max_band[i as usize] >= prev {
             default_pos
         } else {
-            *ist_pos.offset(prev as isize) as libc::c_int
+            *ist_pos.offset(prev as isize) as i32
         }) as uint8_t;
         i += 1
     }
@@ -2066,20 +2026,20 @@ pub unsafe fn L3_intensity_stereo(
         (*gr).sfbtab,
         hdr,
         max_band.as_mut_ptr(),
-        (*gr.offset(1isize)).scalefac_compress as libc::c_int & 1i32,
+        (*gr.offset(1isize)).scalefac_compress as i32 & 1i32,
     );
 }
 pub unsafe fn L3_stereo_process(
-    mut left: *mut libc::c_float,
+    mut left: *mut f32,
     mut ist_pos: *const uint8_t,
     mut sfb: *const uint8_t,
     mut hdr: *const uint8_t,
-    mut max_band: *mut libc::c_int,
-    mut mpeg2_sh: libc::c_int,
+    mut max_band: *mut i32,
+    mut mpeg2_sh: i32,
 ) {
-    static mut g_pan: [libc::c_float; 14] = [
-        0i32 as libc::c_float,
-        1i32 as libc::c_float,
+    static mut g_pan: [f32; 14] = [
+        0i32 as f32,
+        1i32 as f32,
         0.21132487058639527f32,
         0.7886751294136047f32,
         0.3660253882408142f32,
@@ -2090,59 +2050,50 @@ pub unsafe fn L3_stereo_process(
         0.3660253882408142f32,
         0.7886751294136047f32,
         0.21132487058639527f32,
-        1i32 as libc::c_float,
-        0i32 as libc::c_float,
+        1i32 as f32,
+        0i32 as f32,
     ];
-    let mut i: libc::c_uint = 0;
-    let mut max_pos: libc::c_uint = (if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
+    let mut i: u32 = 0;
+    let mut max_pos: u32 = (if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
         7i32
     } else {
         64i32
-    }) as libc::c_uint;
-    i = 0i32 as libc::c_uint;
+    }) as u32;
+    i = 0i32 as u32;
     while 0 != *sfb.offset(i as isize) {
-        let mut ipos: libc::c_uint = *ist_pos.offset(i as isize) as libc::c_uint;
-        if i as libc::c_int > *max_band.offset(i.wrapping_rem(3i32 as libc::c_uint) as isize)
-            && ipos < max_pos
-        {
-            let mut kl: libc::c_float = 0.;
-            let mut kr: libc::c_float = 0.;
-            let mut s: libc::c_float = if 0 != *hdr.offset(3isize) as libc::c_int & 0x20i32 {
+        let mut ipos: u32 = *ist_pos.offset(i as isize) as u32;
+        if i as i32 > *max_band.offset(i.wrapping_rem(3i32 as u32) as isize) && ipos < max_pos {
+            let mut kl: f32 = 0.;
+            let mut kr: f32 = 0.;
+            let mut s: f32 = if 0 != *hdr.offset(3isize) as i32 & 0x20i32 {
                 1.4142135381698609f32
             } else {
-                1i32 as libc::c_float
+                1i32 as f32
             };
-            if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
-                kl = g_pan[(2i32 as libc::c_uint).wrapping_mul(ipos) as usize];
-                kr = g_pan[(2i32 as libc::c_uint)
-                    .wrapping_mul(ipos)
-                    .wrapping_add(1i32 as libc::c_uint) as usize]
+            if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
+                kl = g_pan[(2i32 as u32).wrapping_mul(ipos) as usize];
+                kr = g_pan[(2i32 as u32).wrapping_mul(ipos).wrapping_add(1i32 as u32) as usize]
             } else {
-                kl = 1i32 as libc::c_float;
+                kl = 1i32 as f32;
                 kr = L3_ldexp_q2(
-                    1i32 as libc::c_float,
-                    (ipos.wrapping_add(1i32 as libc::c_uint) >> 1i32 << mpeg2_sh) as libc::c_int,
+                    1i32 as f32,
+                    (ipos.wrapping_add(1i32 as u32) >> 1i32 << mpeg2_sh) as i32,
                 );
-                if 0 != ipos & 1i32 as libc::c_uint {
+                if 0 != ipos & 1i32 as u32 {
                     kl = kr;
-                    kr = 1i32 as libc::c_float
+                    kr = 1i32 as f32
                 }
             }
-            L3_intensity_stereo_band(left, *sfb.offset(i as isize) as libc::c_int, kl * s, kr * s);
-        } else if 0 != *hdr.offset(3isize) as libc::c_int & 0x20i32 {
-            L3_midside_stereo(left, *sfb.offset(i as isize) as libc::c_int);
+            L3_intensity_stereo_band(left, *sfb.offset(i as isize) as i32, kl * s, kr * s);
+        } else if 0 != *hdr.offset(3isize) as i32 & 0x20i32 {
+            L3_midside_stereo(left, *sfb.offset(i as isize) as i32);
         }
-        left = left.offset(*sfb.offset(i as isize) as libc::c_int as isize);
+        left = left.offset(*sfb.offset(i as isize) as i32 as isize);
         i = i.wrapping_add(1)
     }
 }
-pub unsafe fn L3_intensity_stereo_band(
-    mut left: *mut libc::c_float,
-    mut n: libc::c_int,
-    mut kl: libc::c_float,
-    mut kr: libc::c_float,
-) {
-    let mut i: libc::c_int = 0;
+pub unsafe fn L3_intensity_stereo_band(mut left: *mut f32, mut n: i32, mut kl: f32, mut kr: f32) {
+    let mut i: i32 = 0;
     i = 0i32;
     while i < n {
         *left.offset((i + 576i32) as isize) = *left.offset(i as isize) * kr;
@@ -2150,21 +2101,21 @@ pub unsafe fn L3_intensity_stereo_band(
         i += 1
     }
 }
-pub unsafe fn L3_ldexp_q2(mut y: libc::c_float, mut exp_q2: libc::c_int) -> libc::c_float {
-    static mut g_expfrac: [libc::c_float; 4] = [
+pub unsafe fn L3_ldexp_q2(mut y: f32, mut exp_q2: i32) -> f32 {
+    static mut g_expfrac: [f32; 4] = [
         9.313225746154786e-10f32,
         7.831458259666135e-10f32,
         6.5854449671221e-10f32,
         5.53767698363572e-10f32,
     ];
-    let mut e: libc::c_int = 0;
+    let mut e: i32 = 0;
     loop {
         e = if 30i32 * 4i32 > exp_q2 {
             exp_q2
         } else {
             30i32 * 4i32
         };
-        y *= g_expfrac[(e & 3i32) as usize] * (1i32 << 30i32 >> (e >> 2i32)) as libc::c_float;
+        y *= g_expfrac[(e & 3i32) as usize] * (1i32 << 30i32 >> (e >> 2i32)) as f32;
         exp_q2 -= e;
         if !(exp_q2 > 0i32) {
             break;
@@ -2173,13 +2124,13 @@ pub unsafe fn L3_ldexp_q2(mut y: libc::c_float, mut exp_q2: libc::c_int) -> libc
     return y;
 }
 pub unsafe fn L3_stereo_top_band(
-    mut right: *const libc::c_float,
+    mut right: *const f32,
     mut sfb: *const uint8_t,
-    mut nbands: libc::c_int,
-    mut max_band: *mut libc::c_int,
+    mut nbands: i32,
+    mut max_band: *mut i32,
 ) {
-    let mut i: libc::c_int = 0;
-    let mut k: libc::c_int = 0;
+    let mut i: i32 = 0;
+    let mut k: i32 = 0;
     let ref mut fresh24 = *max_band.offset(1isize);
     let ref mut fresh23 = *max_band.offset(2isize);
     *fresh23 = -1i32;
@@ -2188,9 +2139,9 @@ pub unsafe fn L3_stereo_top_band(
     i = 0i32;
     while i < nbands {
         k = 0i32;
-        while k < *sfb.offset(i as isize) as libc::c_int {
-            if *right.offset(k as isize) != 0i32 as libc::c_float
-                || *right.offset((k + 1i32) as isize) != 0i32 as libc::c_float
+        while k < *sfb.offset(i as isize) as i32 {
+            if *right.offset(k as isize) != 0i32 as f32
+                || *right.offset((k + 1i32) as isize) != 0i32 as f32
             {
                 *max_band.offset((i % 3i32) as isize) = i;
                 break;
@@ -2198,16 +2149,16 @@ pub unsafe fn L3_stereo_top_band(
                 k += 2i32
             }
         }
-        right = right.offset(*sfb.offset(i as isize) as libc::c_int as isize);
+        right = right.offset(*sfb.offset(i as isize) as i32 as isize);
         i += 1
     }
 }
 pub unsafe fn L3_huffman(
-    mut dst: *mut libc::c_float,
+    mut dst: *mut f32,
     mut bs: *mut bs_t,
     mut gr_info: *const L3_gr_info_t,
-    mut scf: *const libc::c_float,
-    mut layer3gr_limit: libc::c_int,
+    mut scf: *const f32,
+    mut layer3gr_limit: i32,
 ) {
     static mut tabs: [int16_t; 2164] = [
         0i32 as int16_t,
@@ -4491,62 +4442,60 @@ pub unsafe fn L3_huffman(
         11i32 as uint8_t,
         13i32 as uint8_t,
     ];
-    let mut one: libc::c_float = 0.0f32;
-    let mut ireg: libc::c_int = 0i32;
-    let mut big_val_cnt: libc::c_int = (*gr_info).big_values as libc::c_int;
+    let mut one: f32 = 0.0f32;
+    let mut ireg: i32 = 0i32;
+    let mut big_val_cnt: i32 = (*gr_info).big_values as i32;
     let mut sfb: *const uint8_t = (*gr_info).sfbtab;
     let mut bs_next_ptr: *const uint8_t = (*bs).buf.offset(((*bs).pos / 8i32) as isize);
-    let mut bs_cache: uint32_t = (*bs_next_ptr.offset(0isize) as libc::c_uint)
+    let mut bs_cache: uint32_t = (*bs_next_ptr.offset(0isize) as u32)
         .wrapping_mul(256u32)
-        .wrapping_add(*bs_next_ptr.offset(1isize) as libc::c_uint)
+        .wrapping_add(*bs_next_ptr.offset(1isize) as u32)
         .wrapping_mul(256u32)
-        .wrapping_add(*bs_next_ptr.offset(2isize) as libc::c_uint)
+        .wrapping_add(*bs_next_ptr.offset(2isize) as u32)
         .wrapping_mul(256u32)
-        .wrapping_add(*bs_next_ptr.offset(3isize) as libc::c_uint)
+        .wrapping_add(*bs_next_ptr.offset(3isize) as u32)
         << ((*bs).pos & 7i32);
-    let mut pairs_to_decode: libc::c_int = 0;
-    let mut np: libc::c_int = 0;
-    let mut bs_sh: libc::c_int = ((*bs).pos & 7i32) - 8i32;
+    let mut pairs_to_decode: i32 = 0;
+    let mut np: i32 = 0;
+    let mut bs_sh: i32 = ((*bs).pos & 7i32) - 8i32;
     bs_next_ptr = bs_next_ptr.offset(4isize);
     while big_val_cnt > 0i32 {
-        let mut tab_num: libc::c_int = (*gr_info).table_select[ireg as usize] as libc::c_int;
+        let mut tab_num: i32 = (*gr_info).table_select[ireg as usize] as i32;
         let fresh25 = ireg;
         ireg = ireg + 1;
-        let mut sfb_cnt: libc::c_int = (*gr_info).region_count[fresh25 as usize] as libc::c_int;
+        let mut sfb_cnt: i32 = (*gr_info).region_count[fresh25 as usize] as i32;
         let mut codebook: *const int16_t = tabs
             .as_ptr()
-            .offset(tabindex[tab_num as usize] as libc::c_int as isize);
-        let mut linbits: libc::c_int = g_linbits[tab_num as usize] as libc::c_int;
+            .offset(tabindex[tab_num as usize] as i32 as isize);
+        let mut linbits: i32 = g_linbits[tab_num as usize] as i32;
         loop {
             let fresh26 = sfb;
             sfb = sfb.offset(1);
-            np = *fresh26 as libc::c_int / 2i32;
+            np = *fresh26 as i32 / 2i32;
             pairs_to_decode = if big_val_cnt > np { np } else { big_val_cnt };
             let fresh27 = scf;
             scf = scf.offset(1);
             one = *fresh27;
             loop {
-                let mut j: libc::c_int = 0;
-                let mut w: libc::c_int = 5i32;
-                let mut leaf: libc::c_int =
-                    *codebook.offset((bs_cache >> 32i32 - w) as isize) as libc::c_int;
+                let mut j: i32 = 0;
+                let mut w: i32 = 5i32;
+                let mut leaf: i32 = *codebook.offset((bs_cache >> 32i32 - w) as isize) as i32;
                 while leaf < 0i32 {
                     bs_cache <<= w;
                     bs_sh += w;
                     w = leaf & 7i32;
-                    leaf = *codebook.offset(
-                        (bs_cache >> 32i32 - w).wrapping_sub((leaf >> 3i32) as libc::c_uint)
-                            as isize,
-                    ) as libc::c_int
+                    leaf =
+                        *codebook
+                            .offset((bs_cache >> 32i32 - w).wrapping_sub((leaf >> 3i32) as u32)
+                                as isize) as i32
                 }
                 bs_cache <<= leaf >> 8i32;
                 bs_sh += leaf >> 8i32;
                 j = 0i32;
                 while j < 2i32 {
-                    let mut lsb: libc::c_int = leaf & 0xfi32;
+                    let mut lsb: i32 = leaf & 0xfi32;
                     if lsb == 15i32 && 0 != linbits {
-                        lsb = (lsb as libc::c_uint).wrapping_add(bs_cache >> 32i32 - linbits)
-                            as libc::c_int as libc::c_int;
+                        lsb = (lsb as u32).wrapping_add(bs_cache >> 32i32 - linbits) as i32 as i32;
                         bs_cache <<= linbits;
                         bs_sh += linbits;
                         while bs_sh >= 0i32 {
@@ -4561,10 +4510,10 @@ pub unsafe fn L3_huffman(
                                 -1i32
                             } else {
                                 1i32
-                            }) as libc::c_float
+                            }) as f32
                     } else {
-                        *dst = g_pow43[((16i32 + lsb) as libc::c_uint)
-                            .wrapping_sub((16i32 as libc::c_uint).wrapping_mul(bs_cache >> 31i32))
+                        *dst = g_pow43[((16i32 + lsb) as u32)
+                            .wrapping_sub((16i32 as u32).wrapping_mul(bs_cache >> 31i32))
                             as usize]
                             * one
                     }
@@ -4596,26 +4545,23 @@ pub unsafe fn L3_huffman(
     }
     np = 1i32 - big_val_cnt;
     loop {
-        let mut codebook_count1: *const uint8_t = if 0 != (*gr_info).count1_table as libc::c_int {
+        let mut codebook_count1: *const uint8_t = if 0 != (*gr_info).count1_table as i32 {
             tab33.as_ptr()
         } else {
             tab32.as_ptr()
         };
-        let mut leaf_0: libc::c_int =
-            *codebook_count1.offset((bs_cache >> 32i32 - 4i32) as isize) as libc::c_int;
+        let mut leaf_0: i32 = *codebook_count1.offset((bs_cache >> 32i32 - 4i32) as isize) as i32;
         if 0 == leaf_0 & 8i32 {
             leaf_0 = *codebook_count1.offset(
-                ((leaf_0 >> 3i32) as libc::c_uint)
-                    .wrapping_add(bs_cache << 4i32 >> 32i32 - (leaf_0 & 3i32))
+                ((leaf_0 >> 3i32) as u32).wrapping_add(bs_cache << 4i32 >> 32i32 - (leaf_0 & 3i32))
                     as isize,
-            ) as libc::c_int
+            ) as i32
         }
         bs_cache <<= leaf_0 & 7i32;
         bs_sh += leaf_0 & 7i32;
-        if wrapping_offset_from(bs_next_ptr, (*bs).buf) as libc::c_long * 8i32 as libc::c_long
-            - 24i32 as libc::c_long
-            + bs_sh as libc::c_long
-            > layer3gr_limit as libc::c_long
+        if wrapping_offset_from(bs_next_ptr, (*bs).buf) as i32 * 8i32 as i32 - 24i32 as i32
+            + bs_sh as i32
+            > layer3gr_limit as i32
         {
             break;
         }
@@ -4623,7 +4569,7 @@ pub unsafe fn L3_huffman(
         if 0 == np {
             let fresh30 = sfb;
             sfb = sfb.offset(1);
-            np = *fresh30 as libc::c_int / 2i32;
+            np = *fresh30 as i32 / 2i32;
             if 0 == np {
                 break;
             }
@@ -4653,7 +4599,7 @@ pub unsafe fn L3_huffman(
         if 0 == np {
             let fresh32 = sfb;
             sfb = sfb.offset(1);
-            np = *fresh32 as libc::c_int / 2i32;
+            np = *fresh32 as i32 / 2i32;
             if 0 == np {
                 break;
             }
@@ -4689,9 +4635,9 @@ pub unsafe fn L3_huffman(
     }
     (*bs).pos = layer3gr_limit;
 }
-static mut g_pow43: [libc::c_float; 145] = [
-    0i32 as libc::c_float,
-    -1i32 as libc::c_float,
+static mut g_pow43: [f32; 145] = [
+    0i32 as f32,
+    -1i32 as f32,
     -2.5198419094085695f32,
     -4.326748847961426f32,
     -6.34960412979126f32,
@@ -4706,8 +4652,8 @@ static mut g_pow43: [libc::c_float; 145] = [
     -30.567350387573243f32,
     -33.74199295043945f32,
     -36.99317932128906f32,
-    0i32 as libc::c_float,
-    1i32 as libc::c_float,
+    0i32 as f32,
+    1i32 as f32,
     2.5198419094085695f32,
     4.326748847961426f32,
     6.34960412979126f32,
@@ -4836,10 +4782,10 @@ static mut g_pow43: [libc::c_float; 145] = [
     638.3687744140625f32,
     645.07958984375f32,
 ];
-pub unsafe fn L3_pow_43(mut x: libc::c_int) -> libc::c_float {
-    let mut frac: libc::c_float = 0.;
-    let mut sign: libc::c_int = 0;
-    let mut mult: libc::c_int = 256i32;
+pub unsafe fn L3_pow_43(mut x: i32) -> f32 {
+    let mut frac: f32 = 0.;
+    let mut sign: i32 = 0;
+    let mut mult: i32 = 256i32;
     if x < 129i32 {
         return g_pow43[(16i32 + x) as usize];
     } else {
@@ -4848,12 +4794,10 @@ pub unsafe fn L3_pow_43(mut x: libc::c_int) -> libc::c_float {
             x <<= 3i32
         }
         sign = 2i32 * x & 64i32;
-        frac = ((x & 63i32) - sign) as libc::c_float / ((x & !63i32) + sign) as libc::c_float;
+        frac = ((x & 63i32) - sign) as f32 / ((x & !63i32) + sign) as f32;
         return g_pow43[(16i32 + (x + sign >> 6i32)) as usize]
-            * (1.0f32
-                + frac
-                    * (4.0f32 / 3i32 as libc::c_float + frac * (2.0f32 / 9i32 as libc::c_float)))
-            * mult as libc::c_float;
+            * (1.0f32 + frac * (4.0f32 / 3i32 as f32 + frac * (2.0f32 / 9i32 as f32)))
+            * mult as f32;
     };
 }
 pub unsafe fn L3_decode_scalefactors(
@@ -4861,8 +4805,8 @@ pub unsafe fn L3_decode_scalefactors(
     mut ist_pos: *mut uint8_t,
     mut bs: *mut bs_t,
     mut gr: *const L3_gr_info_t,
-    mut scf: *mut libc::c_float,
-    mut ch: libc::c_int,
+    mut scf: *mut f32,
+    mut ch: i32,
 ) {
     static mut g_scfc_decode: [uint8_t; 16] = [
         0i32 as uint8_t,
@@ -4882,7 +4826,7 @@ pub unsafe fn L3_decode_scalefactors(
         18i32 as uint8_t,
         19i32 as uint8_t,
     ];
-    let mut part: libc::c_int = 0;
+    let mut part: i32 = 0;
     static mut g_scf_partitions: [[uint8_t; 28]; 3] = [
         [
             6i32 as uint8_t,
@@ -4975,19 +4919,18 @@ pub unsafe fn L3_decode_scalefactors(
             0i32 as uint8_t,
         ],
     ];
-    let mut scf_partition: *const uint8_t =
-        g_scf_partitions[((0 != (*gr).n_short_sfb) as libc::c_int
-            + (0 == (*gr).n_long_sfb) as libc::c_int) as usize]
-            .as_ptr();
+    let mut scf_partition: *const uint8_t = g_scf_partitions
+        [((0 != (*gr).n_short_sfb) as i32 + (0 == (*gr).n_long_sfb) as i32) as usize]
+        .as_ptr();
     let mut scf_size: [uint8_t; 4] = [0; 4];
     let mut iscf: [uint8_t; 40] = [0; 40];
-    let mut i: libc::c_int = 0;
-    let mut scf_shift: libc::c_int = (*gr).scalefac_scale as libc::c_int + 1i32;
-    let mut gain_exp: libc::c_int = 0;
-    let mut scfsi: libc::c_int = (*gr).scfsi as libc::c_int;
-    let mut gain: libc::c_float = 0.;
-    if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
-        part = g_scfc_decode[(*gr).scalefac_compress as usize] as libc::c_int;
+    let mut i: i32 = 0;
+    let mut scf_shift: i32 = (*gr).scalefac_scale as i32 + 1i32;
+    let mut gain_exp: i32 = 0;
+    let mut scfsi: i32 = (*gr).scfsi as i32;
+    let mut gain: f32 = 0.;
+    if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
+        part = g_scfc_decode[(*gr).scalefac_compress as usize] as i32;
         scf_size[0usize] = (part >> 2i32) as uint8_t;
         scf_size[1usize] = scf_size[0usize];
         scf_size[2usize] = (part & 3i32) as uint8_t;
@@ -5019,20 +4962,18 @@ pub unsafe fn L3_decode_scalefactors(
             1i32 as uint8_t,
             1i32 as uint8_t,
         ];
-        let mut k: libc::c_int = 0;
-        let mut modprod: libc::c_int = 0;
-        let mut sfc: libc::c_int = 0;
-        let mut ist: libc::c_int =
-            (0 != *hdr.offset(3isize) as libc::c_int & 0x10i32 && 0 != ch) as libc::c_int;
-        sfc = (*gr).scalefac_compress as libc::c_int >> ist;
+        let mut k: i32 = 0;
+        let mut modprod: i32 = 0;
+        let mut sfc: i32 = 0;
+        let mut ist: i32 = (0 != *hdr.offset(3isize) as i32 & 0x10i32 && 0 != ch) as i32;
+        sfc = (*gr).scalefac_compress as i32 >> ist;
         k = ist * 3i32 * 4i32;
         while sfc >= 0i32 {
             modprod = 1i32;
             i = 3i32;
             while i >= 0i32 {
-                scf_size[i as usize] =
-                    (sfc / modprod % g_mod[(k + i) as usize] as libc::c_int) as uint8_t;
-                modprod *= g_mod[(k + i) as usize] as libc::c_int;
+                scf_size[i as usize] = (sfc / modprod % g_mod[(k + i) as usize] as i32) as uint8_t;
+                modprod *= g_mod[(k + i) as usize] as i32;
                 i -= 1
             }
             sfc -= modprod;
@@ -5050,21 +4991,18 @@ pub unsafe fn L3_decode_scalefactors(
         scfsi,
     );
     if 0 != (*gr).n_short_sfb {
-        let mut sh: libc::c_int = 3i32 - scf_shift;
+        let mut sh: i32 = 3i32 - scf_shift;
         i = 0i32;
-        while i < (*gr).n_short_sfb as libc::c_int {
-            iscf[((*gr).n_long_sfb as libc::c_int + i + 0i32) as usize] =
-                (iscf[((*gr).n_long_sfb as libc::c_int + i + 0i32) as usize] as libc::c_int
-                    + (((*gr).subblock_gain[0usize] as libc::c_int) << sh))
-                    as uint8_t;
-            iscf[((*gr).n_long_sfb as libc::c_int + i + 1i32) as usize] =
-                (iscf[((*gr).n_long_sfb as libc::c_int + i + 1i32) as usize] as libc::c_int
-                    + (((*gr).subblock_gain[1usize] as libc::c_int) << sh))
-                    as uint8_t;
-            iscf[((*gr).n_long_sfb as libc::c_int + i + 2i32) as usize] =
-                (iscf[((*gr).n_long_sfb as libc::c_int + i + 2i32) as usize] as libc::c_int
-                    + (((*gr).subblock_gain[2usize] as libc::c_int) << sh))
-                    as uint8_t;
+        while i < (*gr).n_short_sfb as i32 {
+            iscf[((*gr).n_long_sfb as i32 + i + 0i32) as usize] =
+                (iscf[((*gr).n_long_sfb as i32 + i + 0i32) as usize] as i32
+                    + (((*gr).subblock_gain[0usize] as i32) << sh)) as uint8_t;
+            iscf[((*gr).n_long_sfb as i32 + i + 1i32) as usize] =
+                (iscf[((*gr).n_long_sfb as i32 + i + 1i32) as usize] as i32
+                    + (((*gr).subblock_gain[1usize] as i32) << sh)) as uint8_t;
+            iscf[((*gr).n_long_sfb as i32 + i + 2i32) as usize] =
+                (iscf[((*gr).n_long_sfb as i32 + i + 2i32) as usize] as i32
+                    + (((*gr).subblock_gain[2usize] as i32) << sh)) as uint8_t;
             i += 3i32
         }
     } else if 0 != (*gr).preflag {
@@ -5082,26 +5020,25 @@ pub unsafe fn L3_decode_scalefactors(
         ];
         i = 0i32;
         while i < 10i32 {
-            iscf[(11i32 + i) as usize] = (iscf[(11i32 + i) as usize] as libc::c_int
-                + g_preamp[i as usize] as libc::c_int)
-                as uint8_t;
+            iscf[(11i32 + i) as usize] =
+                (iscf[(11i32 + i) as usize] as i32 + g_preamp[i as usize] as i32) as uint8_t;
             i += 1
         }
     }
-    gain_exp = (*gr).global_gain as libc::c_int + -1i32 * 4i32
+    gain_exp = (*gr).global_gain as i32 + -1i32 * 4i32
         - 210i32
-        - if *hdr.offset(3isize) as libc::c_int & 0xe0i32 == 0x60i32 {
+        - if *hdr.offset(3isize) as i32 & 0xe0i32 == 0x60i32 {
             2i32
         } else {
             0i32
         };
     gain = L3_ldexp_q2(
-        (1i32 << (255i32 + -1i32 * 4i32 - 210i32 + 3i32 & !3i32) / 4i32) as libc::c_float,
+        (1i32 << (255i32 + -1i32 * 4i32 - 210i32 + 3i32 & !3i32) / 4i32) as f32,
         (255i32 + -1i32 * 4i32 - 210i32 + 3i32 & !3i32) - gain_exp,
     );
     i = 0i32;
-    while i < (*gr).n_long_sfb as libc::c_int + (*gr).n_short_sfb as libc::c_int {
-        *scf.offset(i as isize) = L3_ldexp_q2(gain, (iscf[i as usize] as libc::c_int) << scf_shift);
+    while i < (*gr).n_long_sfb as i32 + (*gr).n_short_sfb as i32 {
+        *scf.offset(i as isize) = L3_ldexp_q2(gain, (iscf[i as usize] as i32) << scf_shift);
         i += 1
     }
 }
@@ -5111,29 +5048,29 @@ pub unsafe fn L3_read_scalefactors(
     mut scf_size: *const uint8_t,
     mut scf_count: *const uint8_t,
     mut bitbuf: *mut bs_t,
-    mut scfsi: libc::c_int,
+    mut scfsi: i32,
 ) {
-    let mut i: libc::c_int = 0;
-    let mut k: libc::c_int = 0;
+    let mut i: i32 = 0;
+    let mut k: i32 = 0;
     i = 0i32;
-    while i < 4i32 && 0 != *scf_count.offset(i as isize) as libc::c_int {
-        let mut cnt: libc::c_int = *scf_count.offset(i as isize) as libc::c_int;
+    while i < 4i32 && 0 != *scf_count.offset(i as isize) as i32 {
+        let mut cnt: i32 = *scf_count.offset(i as isize) as i32;
         if 0 != scfsi & 8i32 {
             ptr::copy_nonoverlapping(ist_pos, scf, cnt as usize);
         } else {
-            let mut bits: libc::c_int = *scf_size.offset(i as isize) as libc::c_int;
+            let mut bits: i32 = *scf_size.offset(i as isize) as i32;
             if 0 == bits {
                 ptr::write_bytes(scf, 0, 1);
                 ptr::write_bytes(ist_pos, 0, 1);
             } else {
-                let mut max_scf: libc::c_int = if scfsi < 0i32 {
+                let mut max_scf: i32 = if scfsi < 0i32 {
                     (1i32 << bits) - 1i32
                 } else {
                     -1i32
                 };
                 k = 0i32;
                 while k < cnt {
-                    let mut s: libc::c_int = get_bits(bitbuf, bits) as libc::c_int;
+                    let mut s: i32 = get_bits(bitbuf, bits) as i32;
                     *ist_pos.offset(k as isize) = (if s == max_scf { -1i32 } else { s }) as uint8_t;
                     *scf.offset(k as isize) = s as uint8_t;
                     k += 1
@@ -5156,7 +5093,7 @@ pub unsafe fn L3_read_side_info(
     mut bs: *mut bs_t,
     mut gr: *mut L3_gr_info_t,
     mut hdr: *const uint8_t,
-) -> libc::c_int {
+) -> i32 {
     static mut g_scf_long: [[uint8_t; 23]; 8] = [
         [
             6i32 as uint8_t,
@@ -6035,41 +5972,41 @@ pub unsafe fn L3_read_side_info(
             0,
         ],
     ];
-    let mut tables: libc::c_uint = 0;
-    let mut scfsi: libc::c_uint = 0i32 as libc::c_uint;
-    let mut main_data_begin: libc::c_int = 0;
-    let mut part_23_sum: libc::c_int = 0i32;
-    let mut sr_idx: libc::c_int = (*hdr.offset(2isize) as libc::c_int >> 2i32 & 3i32)
-        + ((*hdr.offset(1isize) as libc::c_int >> 3i32 & 1i32)
-            + (*hdr.offset(1isize) as libc::c_int >> 4i32 & 1i32))
+    let mut tables: u32 = 0;
+    let mut scfsi: u32 = 0i32 as u32;
+    let mut main_data_begin: i32 = 0;
+    let mut part_23_sum: i32 = 0i32;
+    let mut sr_idx: i32 = (*hdr.offset(2isize) as i32 >> 2i32 & 3i32)
+        + ((*hdr.offset(1isize) as i32 >> 3i32 & 1i32)
+            + (*hdr.offset(1isize) as i32 >> 4i32 & 1i32))
             * 3i32;
-    sr_idx -= (sr_idx != 0i32) as libc::c_int;
-    let mut gr_count: libc::c_int = if *hdr.offset(3isize) as libc::c_int & 0xc0i32 == 0xc0i32 {
+    sr_idx -= (sr_idx != 0i32) as i32;
+    let mut gr_count: i32 = if *hdr.offset(3isize) as i32 & 0xc0i32 == 0xc0i32 {
         1i32
     } else {
         2i32
     };
-    if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
+    if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
         gr_count *= 2i32;
-        main_data_begin = get_bits(bs, 9i32) as libc::c_int;
+        main_data_begin = get_bits(bs, 9i32) as i32;
         scfsi = get_bits(bs, 7i32 + gr_count)
     } else {
-        main_data_begin = (get_bits(bs, 8i32 + gr_count) >> gr_count) as libc::c_int
+        main_data_begin = (get_bits(bs, 8i32 + gr_count) >> gr_count) as i32
     }
     loop {
-        if *hdr.offset(3isize) as libc::c_int & 0xc0i32 == 0xc0i32 {
+        if *hdr.offset(3isize) as i32 & 0xc0i32 == 0xc0i32 {
             scfsi <<= 4i32
         }
         (*gr).part_23_length = get_bits(bs, 12i32) as uint16_t;
-        part_23_sum += (*gr).part_23_length as libc::c_int;
+        part_23_sum += (*gr).part_23_length as i32;
         (*gr).big_values = get_bits(bs, 9i32) as uint16_t;
-        if (*gr).big_values as libc::c_int > 288i32 {
+        if (*gr).big_values as i32 > 288i32 {
             return -1i32;
         } else {
             (*gr).global_gain = get_bits(bs, 8i32) as uint8_t;
             (*gr).scalefac_compress = get_bits(
                 bs,
-                if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
+                if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
                     4i32
                 } else {
                     9i32
@@ -6086,8 +6023,8 @@ pub unsafe fn L3_read_side_info(
                     (*gr).mixed_block_flag = get_bits(bs, 1i32) as uint8_t;
                     (*gr).region_count[0usize] = 7i32 as uint8_t;
                     (*gr).region_count[1usize] = 255i32 as uint8_t;
-                    if (*gr).block_type as libc::c_int == 2i32 {
-                        scfsi &= 0xf0fi32 as libc::c_uint;
+                    if (*gr).block_type as i32 == 2i32 {
+                        scfsi &= 0xf0fi32 as u32;
                         if 0 == (*gr).mixed_block_flag {
                             (*gr).region_count[0usize] = 8i32 as uint8_t;
                             (*gr).sfbtab = g_scf_short[sr_idx as usize].as_ptr();
@@ -6095,8 +6032,7 @@ pub unsafe fn L3_read_side_info(
                             (*gr).n_short_sfb = 39i32 as uint8_t
                         } else {
                             (*gr).sfbtab = g_scf_mixed[sr_idx as usize].as_ptr();
-                            (*gr).n_long_sfb = (if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32
-                            {
+                            (*gr).n_long_sfb = (if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
                                 8i32
                             } else {
                                 6i32
@@ -6119,16 +6055,16 @@ pub unsafe fn L3_read_side_info(
                 (*gr).region_count[2usize] = 255i32 as uint8_t
             }
             (*gr).table_select[0usize] = (tables >> 10i32) as uint8_t;
-            (*gr).table_select[1usize] = (tables >> 5i32 & 31i32 as libc::c_uint) as uint8_t;
-            (*gr).table_select[2usize] = (tables & 31i32 as libc::c_uint) as uint8_t;
-            (*gr).preflag = (if 0 != *hdr.offset(1isize) as libc::c_int & 0x8i32 {
+            (*gr).table_select[1usize] = (tables >> 5i32 & 31i32 as u32) as uint8_t;
+            (*gr).table_select[2usize] = (tables & 31i32 as u32) as uint8_t;
+            (*gr).preflag = (if 0 != *hdr.offset(1isize) as i32 & 0x8i32 {
                 get_bits(bs, 1i32)
             } else {
-                ((*gr).scalefac_compress as libc::c_int >= 500i32) as libc::c_int as libc::c_uint
+                ((*gr).scalefac_compress as i32 >= 500i32) as i32 as u32
             }) as uint8_t;
             (*gr).scalefac_scale = get_bits(bs, 1i32) as uint8_t;
             (*gr).count1_table = get_bits(bs, 1i32) as uint8_t;
-            (*gr).scfsi = (scfsi >> 12i32 & 15i32 as libc::c_uint) as uint8_t;
+            (*gr).scfsi = (scfsi >> 12i32 & 15i32 as u32) as uint8_t;
             scfsi <<= 4i32;
             gr = gr.offset(1isize);
             gr_count -= 1;
@@ -6147,10 +6083,10 @@ pub unsafe fn L3_restore_reservoir(
     mut h: *mut mp3dec_t,
     mut bs: *mut bs_t,
     mut s: *mut mp3dec_scratch_t,
-    mut main_data_begin: libc::c_int,
-) -> libc::c_int {
-    let mut frame_bytes: libc::c_int = ((*bs).limit - (*bs).pos) / 8i32;
-    let mut bytes_have: libc::c_int = if (*h).reserv > main_data_begin {
+    mut main_data_begin: i32,
+) -> i32 {
+    let mut frame_bytes: i32 = ((*bs).limit - (*bs).pos) / 8i32;
+    let mut bytes_have: i32 = if (*h).reserv > main_data_begin {
         main_data_begin
     } else {
         (*h).reserv
@@ -6180,41 +6116,37 @@ pub unsafe fn L3_restore_reservoir(
         (*s).maindata.as_mut_ptr(),
         bytes_have + frame_bytes,
     );
-    return ((*h).reserv >= main_data_begin) as libc::c_int;
+    return ((*h).reserv >= main_data_begin) as i32;
 }
-pub unsafe fn bs_init(mut bs: *mut bs_t, mut data: *const uint8_t, mut bytes: libc::c_int) {
+pub unsafe fn bs_init(mut bs: *mut bs_t, mut data: *const uint8_t, mut bytes: i32) {
     (*bs).buf = data;
     (*bs).pos = 0i32;
     (*bs).limit = bytes * 8i32;
 }
-pub unsafe fn hdr_sample_rate_hz(mut h: *const uint8_t) -> libc::c_uint {
-    static mut g_hz: [libc::c_uint; 3] = [
-        44100i32 as libc::c_uint,
-        48000i32 as libc::c_uint,
-        32000i32 as libc::c_uint,
-    ];
-    return g_hz[(*h.offset(2isize) as libc::c_int >> 2i32 & 3i32) as usize]
-        >> (0 == *h.offset(1isize) as libc::c_int & 0x8i32) as libc::c_int
-        >> (0 == *h.offset(1isize) as libc::c_int & 0x10i32) as libc::c_int;
+pub unsafe fn hdr_sample_rate_hz(mut h: *const uint8_t) -> u32 {
+    static mut g_hz: [u32; 3] = [44100i32 as u32, 48000i32 as u32, 32000i32 as u32];
+    return g_hz[(*h.offset(2isize) as i32 >> 2i32 & 3i32) as usize]
+        >> (0 == *h.offset(1isize) as i32 & 0x8i32) as i32
+        >> (0 == *h.offset(1isize) as i32 & 0x10i32) as i32;
 }
 pub unsafe fn mp3d_find_frame(
     mut mp3: *const uint8_t,
-    mut mp3_bytes: libc::c_int,
-    mut free_format_bytes: *mut libc::c_int,
-    mut ptr_frame_bytes: *mut libc::c_int,
-) -> libc::c_int {
-    let mut i: libc::c_int = 0;
-    let mut k: libc::c_int = 0;
+    mut mp3_bytes: i32,
+    mut free_format_bytes: *mut i32,
+    mut ptr_frame_bytes: *mut i32,
+) -> i32 {
+    let mut i: i32 = 0;
+    let mut k: i32 = 0;
     i = 0i32;
     while i < mp3_bytes - 4i32 {
         if 0 != hdr_valid(mp3) {
-            let mut frame_bytes: libc::c_int = hdr_frame_bytes(mp3, *free_format_bytes);
-            let mut frame_and_padding: libc::c_int = frame_bytes + hdr_padding(mp3);
+            let mut frame_bytes: i32 = hdr_frame_bytes(mp3, *free_format_bytes);
+            let mut frame_and_padding: i32 = frame_bytes + hdr_padding(mp3);
             k = 4i32;
             while 0 == frame_bytes && k < 2304i32 && i + 2i32 * k < mp3_bytes - 4i32 {
                 if 0 != hdr_compare(mp3, mp3.offset(k as isize)) {
-                    let mut fb: libc::c_int = k - hdr_padding(mp3);
-                    let mut nextfb: libc::c_int = fb + hdr_padding(mp3.offset(k as isize));
+                    let mut fb: i32 = k - hdr_padding(mp3);
+                    let mut nextfb: i32 = fb + hdr_padding(mp3.offset(k as isize));
                     if !(i + k + nextfb + 4i32 > mp3_bytes
                         || 0 == hdr_compare(mp3, mp3.offset(k as isize).offset(nextfb as isize)))
                     {
@@ -6242,9 +6174,9 @@ pub unsafe fn mp3d_find_frame(
     *ptr_frame_bytes = 0i32;
     return i;
 }
-pub unsafe fn hdr_padding(mut h: *const uint8_t) -> libc::c_int {
-    return if 0 != *h.offset(2isize) as libc::c_int & 0x2i32 {
-        if *h.offset(1isize) as libc::c_int & 6i32 == 6i32 {
+pub unsafe fn hdr_padding(mut h: *const uint8_t) -> i32 {
+    return if 0 != *h.offset(2isize) as i32 & 0x2i32 {
+        if *h.offset(1isize) as i32 & 6i32 == 6i32 {
             4i32
         } else {
             1i32
@@ -6253,15 +6185,12 @@ pub unsafe fn hdr_padding(mut h: *const uint8_t) -> libc::c_int {
         0i32
     };
 }
-pub unsafe fn hdr_frame_bytes(
-    mut h: *const uint8_t,
-    mut free_format_size: libc::c_int,
-) -> libc::c_int {
-    let mut frame_bytes: libc::c_int = hdr_frame_samples(h)
+pub unsafe fn hdr_frame_bytes(mut h: *const uint8_t, mut free_format_size: i32) -> i32 {
+    let mut frame_bytes: i32 = hdr_frame_samples(h)
         .wrapping_mul(hdr_bitrate_kbps(h))
-        .wrapping_mul(125i32 as libc::c_uint)
-        .wrapping_div(hdr_sample_rate_hz(h)) as libc::c_int;
-    if *h.offset(1isize) as libc::c_int & 6i32 == 6i32 {
+        .wrapping_mul(125i32 as u32)
+        .wrapping_div(hdr_sample_rate_hz(h)) as i32;
+    if *h.offset(1isize) as i32 & 6i32 == 6i32 {
         /* slot align */
         frame_bytes &= !3i32
     }
@@ -6273,18 +6202,18 @@ pub unsafe fn hdr_frame_bytes(
 }
 pub unsafe fn mp3d_match_frame(
     mut hdr: *const uint8_t,
-    mut mp3_bytes: libc::c_int,
-    mut frame_bytes: libc::c_int,
-) -> libc::c_int {
-    let mut i: libc::c_int = 0;
-    let mut nmatch: libc::c_int = 0;
+    mut mp3_bytes: i32,
+    mut frame_bytes: i32,
+) -> i32 {
+    let mut i: i32 = 0;
+    let mut nmatch: i32 = 0;
     i = 0i32;
     nmatch = 0i32;
     while nmatch < 10i32 {
         i += hdr_frame_bytes(hdr.offset(i as isize), frame_bytes)
             + hdr_padding(hdr.offset(i as isize));
         if i + 4i32 > mp3_bytes {
-            return (nmatch > 0i32) as libc::c_int;
+            return (nmatch > 0i32) as i32;
         } else if 0 == hdr_compare(hdr, hdr.offset(i as isize)) {
             return 0i32;
         } else {
@@ -6293,20 +6222,18 @@ pub unsafe fn mp3d_match_frame(
     }
     return 1i32;
 }
-pub unsafe fn hdr_compare(mut h1: *const uint8_t, mut h2: *const uint8_t) -> libc::c_int {
+pub unsafe fn hdr_compare(mut h1: *const uint8_t, mut h2: *const uint8_t) -> i32 {
     return (0 != hdr_valid(h2)
-        && (*h1.offset(1isize) as libc::c_int ^ *h2.offset(1isize) as libc::c_int) & 0xfei32
-            == 0i32
-        && (*h1.offset(2isize) as libc::c_int ^ *h2.offset(2isize) as libc::c_int) & 0xci32 == 0i32
-        && 0 == (*h1.offset(2isize) as libc::c_int & 0xf0i32 == 0i32) as libc::c_int
-            ^ (*h2.offset(2isize) as libc::c_int & 0xf0i32 == 0i32) as libc::c_int)
-        as libc::c_int;
+        && (*h1.offset(1isize) as i32 ^ *h2.offset(1isize) as i32) & 0xfei32 == 0i32
+        && (*h1.offset(2isize) as i32 ^ *h2.offset(2isize) as i32) & 0xci32 == 0i32
+        && 0 == (*h1.offset(2isize) as i32 & 0xf0i32 == 0i32) as i32
+            ^ (*h2.offset(2isize) as i32 & 0xf0i32 == 0i32) as i32) as i32;
 }
-pub unsafe fn hdr_valid(mut h: *const uint8_t) -> libc::c_int {
-    return (*h.offset(0isize) as libc::c_int == 0xffi32
-        && (*h.offset(1isize) as libc::c_int & 0xf0i32 == 0xf0i32
-            || *h.offset(1isize) as libc::c_int & 0xfei32 == 0xe2i32)
-        && *h.offset(1isize) as libc::c_int >> 1i32 & 3i32 != 0i32
-        && *h.offset(2isize) as libc::c_int >> 4i32 != 15i32
-        && *h.offset(2isize) as libc::c_int >> 2i32 & 3i32 != 3i32) as libc::c_int;
+pub unsafe fn hdr_valid(mut h: *const uint8_t) -> i32 {
+    return (*h.offset(0isize) as i32 == 0xffi32
+        && (*h.offset(1isize) as i32 & 0xf0i32 == 0xf0i32
+            || *h.offset(1isize) as i32 & 0xfei32 == 0xe2i32)
+        && *h.offset(1isize) as i32 >> 1i32 & 3i32 != 0i32
+        && *h.offset(2isize) as i32 >> 4i32 != 15i32
+        && *h.offset(2isize) as i32 >> 2i32 & 3i32 != 3i32) as i32;
 }
