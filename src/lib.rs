@@ -10,7 +10,7 @@ mod l3;
 use core::mem;
 use core::ptr;
 
-use crate::bits::Bits;
+use crate::bits::BitStream;
 pub use crate::ffi::{mp3dec_frame_info_t, mp3dec_init, mp3dec_t};
 
 fn decoder_init(dec: &mut ffi::mp3dec_t) {
@@ -69,26 +69,23 @@ pub fn decode_frame(
     let pcm_view = pcm.unwrap();
     let mut pcm_pos = 0;
 
-    let mut bs_frame = Bits::new(&hdr[(HDR_SIZE as _)..(frame_size as _)]);
+    let mut bs_frame = BitStream::new(&hdr[(HDR_SIZE as _)..(frame_size as _)]);
     if header::is_crc(hdr) {
         bs_frame.position += 16;
     }
 
     let mut scratch = decoder::Scratch::default();
-    let mut success = true;
     if info.layer == 3 {
         let mut gr_info = [l3::GrInfo::default(); 4];
         let main_data_begin = l3::read_side_info(&mut bs_frame, &mut gr_info, hdr);
-        if main_data_begin < 0 || bs_frame.position > bs_frame.limit() {
+        if main_data_begin < 0 || bs_frame.position > bs_frame.limit {
             decoder_init(decoder);
             return 0;
         }
-        success = l3::restore_reservoir(
-            decoder,
-            &mut bs_frame,
-            &mut scratch.bits,
-            main_data_begin as _,
-        );
+
+        let mut main_data = [0; 2815];
+        let (mut scratch_bs, success) =
+            l3::restore_reservoir(decoder, &mut bs_frame, &mut main_data, main_data_begin as _);
 
         if success {
             let count = if header::test_mpeg1(hdr) { 2 } else { 1 };
@@ -98,6 +95,7 @@ pub fn decode_frame(
                     l3::decode(
                         decoder,
                         &mut scratch,
+                        &mut scratch_bs,
                         &gr_info[((igr * info.channels) as _)..],
                         info.channels as _,
                     );
@@ -112,8 +110,11 @@ pub fn decode_frame(
                 };
                 pcm_pos += 576 * info.channels as usize;
             }
+            l3::save_reservoir(decoder, &mut scratch_bs);
+        } else {
+            l3::save_reservoir(decoder, &mut scratch_bs);
+            return 0;
         }
-        l3::save_reservoir(decoder, &mut scratch.bits);
     } else {
         let mut bs_copy = unsafe { bs_frame.bs_copy() };
         let mut sci = unsafe {
@@ -159,5 +160,5 @@ pub fn decode_frame(
         }
         bs_frame.position = bs_copy.pos as _;
     }
-    success as i32 * header::frame_samples(&decoder.header)
+    header::frame_samples(&decoder.header)
 }

@@ -1,21 +1,25 @@
 use super::ffi;
 
-pub struct Bits<'a> {
+pub struct BitStream<'a> {
     pub data: &'a [u8],
+    // this is not the same as the length of the slice
+    // the data is still accessible,
+    // but it won't be included in get_bits
+    pub limit: usize,
     pub position: usize,
 }
 
-impl<'a> Bits<'a> {
+impl<'a> BitStream<'a> {
     pub fn new_with_pos(data: &'a [u8], position: usize) -> Self {
-        Bits { data, position }
+        BitStream {
+            data,
+            position,
+            limit: data.len() * 8,
+        }
     }
 
     pub fn new(data: &'a [u8]) -> Self {
-        Bits::new_with_pos(data, 0)
-    }
-
-    pub fn limit(&self) -> usize {
-        self.data.len() * 8
+        BitStream::new_with_pos(data, 0)
     }
 
     // use when a bs_t is needed to preserve the original lifetime
@@ -24,7 +28,7 @@ impl<'a> Bits<'a> {
         ffi::bs_t {
             buf: self.data.as_ptr(),
             pos: self.position as _,
-            limit: self.limit() as _,
+            limit: self.limit as _,
         }
     }
 
@@ -32,7 +36,7 @@ impl<'a> Bits<'a> {
         let s = self.position & 7;
         let mut idx = self.position as usize >> 3;
         self.position += amount as usize;
-        if self.position > self.limit() {
+        if self.position > self.limit {
             return 0;
         }
 

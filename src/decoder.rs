@@ -1,50 +1,17 @@
-use crate::bits::Bits;
 use crate::{ffi, header};
 use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
 #[derive(Copy, Clone)]
 pub struct Scratch {
-    pub bits: BitsProxy,
     pub grbuf: [f32; 576 * 2],
     pub scf: [f32; 40],
     pub syn: [f32; 64 * 33],
     pub ist_pos: [[u8; 39]; 2],
 }
 
-// used to avoid self referencial structs
-#[derive(Copy, Clone)]
-pub struct BitsProxy {
-    pub position: usize,
-    pub len: usize,
-    pub maindata: [u8; 2815],
-}
-
-impl BitsProxy {
-    pub fn with_bits<F, T>(&mut self, fun: F) -> T
-    where
-        F: FnOnce(&mut Bits) -> T,
-    {
-        let mut bits = Bits::new_with_pos(&self.maindata, self.position);
-        let res = fun(&mut bits);
-        self.position = bits.position;
-        res
-    }
-}
-
-impl Default for BitsProxy {
-    fn default() -> Self {
-        BitsProxy {
-            position: 0,
-            len: 2815,
-            maindata: [0; 2815],
-        }
-    }
-}
-
 impl Default for Scratch {
     fn default() -> Self {
         Scratch {
-            bits: BitsProxy::default(),
             grbuf: [0.0; 576 * 2],
             scf: [0.0; 40],
             syn: [0.0; 64 * 33],

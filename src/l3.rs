@@ -1,6 +1,6 @@
 use core::cmp;
 
-use crate::bits::Bits;
+use crate::bits::BitStream;
 use crate::{decoder, ffi, header};
 use crate::{BITS_DEQUANTIZER_OUT, MAX_BITRESERVOIR_BYTES, MAX_SCFI, SHORT_BLOCK_TYPE};
 
@@ -96,7 +96,7 @@ static G_POW43: [f64; 145] = [
     625.000_000, 631.675_540, 638.368_763, 645.079_578,
 ];
 
-pub fn read_side_info(bs: &mut Bits, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
+pub fn read_side_info(bs: &mut BitStream<'_>, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
     let mut sr_idx = header::get_my_sample_rate(hdr);
     if sr_idx != 0 {
         sr_idx -= 1
@@ -186,42 +186,41 @@ pub fn read_side_info(bs: &mut Bits, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
         scfsi <<= 4;
     }
 
-    if part_23_sum + bs.position as i32 > bs.limit() as i32 + (main_data_begin as i32) * 8 {
+    if part_23_sum + bs.position as i32 > bs.limit as i32 + (main_data_begin as i32) * 8 {
         -1
     } else {
         main_data_begin as _
     }
 }
 
-pub fn restore_reservoir(
+pub fn restore_reservoir<'d>(
     decoder: &mut ffi::mp3dec_t,
-    bs: &mut Bits,
-    scratch_bits: &mut decoder::BitsProxy,
+    bs: &mut BitStream<'_>,
+    main_data: &'d mut [u8],
     main_data_begin: u32,
-) -> bool {
-    let frame_bytes = (bs.limit() - bs.position) / 8;
+) -> (BitStream<'d>, bool) {
+    let frame_bytes = (bs.limit - bs.position) / 8;
     let bytes_have = cmp::min(decoder.reserv, main_data_begin as i32) as usize;
     let reserve_start = cmp::max(0, decoder.reserv - main_data_begin as i32) as usize;
-    scratch_bits.maindata[..bytes_have]
+    main_data[..bytes_have]
         .copy_from_slice(&decoder.reserv_buf[reserve_start..(reserve_start + bytes_have)]);
     let bs_bytes = bs.position / 8;
-    scratch_bits.maindata[(bytes_have)..(bytes_have + frame_bytes)]
+    main_data[(bytes_have)..(bytes_have + frame_bytes)]
         .copy_from_slice(&bs.data[bs_bytes..(bs_bytes + frame_bytes)]);
-    scratch_bits.len = bytes_have + frame_bytes;
-    scratch_bits.position = 0;
-    decoder.reserv >= main_data_begin as i32
+    let mut scratch_bs = BitStream::new(main_data);
+    scratch_bs.limit = (bytes_have + frame_bytes) * 8;
+    (scratch_bs, decoder.reserv >= main_data_begin as i32)
 }
 
-pub fn save_reservoir(decoder: &mut ffi::mp3dec_t, bits: &mut decoder::BitsProxy) {
-    let mut position = bits.position / 8;
-    let mut remains = bits.len - position;
+pub fn save_reservoir(decoder: &mut ffi::mp3dec_t, bs: &mut BitStream<'_>) {
+    let mut position = bs.position / 8;
+    let mut remains = bs.limit / 8 - position;
     if remains > MAX_BITRESERVOIR_BYTES {
         position += remains - MAX_BITRESERVOIR_BYTES;
         remains = MAX_BITRESERVOIR_BYTES;
     }
     if remains > 0 {
-        decoder.reserv_buf[..remains]
-            .copy_from_slice(&bits.maindata[position..(position + remains)])
+        decoder.reserv_buf[..remains].copy_from_slice(&bs.data[position..(position + remains)])
     }
     decoder.reserv = remains as _;
 }
@@ -229,7 +228,7 @@ pub fn save_reservoir(decoder: &mut ffi::mp3dec_t, bits: &mut decoder::BitsProxy
 pub fn decode_scalefactors(
     hdr: &[u8],
     ist_pos: &mut [u8],
-    bs: &mut Bits,
+    bs: &mut BitStream<'_>,
     gr: &GrInfo,
     scf: &mut [f32],
     ch: i32,
@@ -332,7 +331,7 @@ fn read_scalefactors(
     mut ist_pos: &mut [u8],
     scf_size: &[u8],
     scf_count: &[u8],
-    bitbuf: &mut Bits,
+    bitbuf: &mut BitStream<'_>,
     mut scfsi: i32,
 ) {
     for i in (0..4).take_while(|&i| scf_count[i] != 0) {
@@ -358,6 +357,7 @@ fn read_scalefactors(
 pub fn decode(
     decoder: &mut ffi::mp3dec_t,
     scratch: &mut decoder::Scratch,
+    bs: &mut BitStream<'_>,
     native_gr_info: &[GrInfo],
     channel_num: usize,
 ) {
@@ -365,24 +365,16 @@ pub fn decode(
         let ist_pos = &mut scratch.ist_pos;
         let scf = &mut scratch.scf;
         let grbuf = &mut scratch.grbuf;
-        let layer3gr_limit = scratch.bits.position as i32 + i32::from(info.part_23_length);
-        scratch.bits.with_bits(|mut bs| {
-            decode_scalefactors(
-                &decoder.header,
-                &mut ist_pos[channel],
-                &mut bs,
-                info,
-                scf,
-                channel as _,
-            );
-            huffman(
-                &mut grbuf[(channel * 576)..],
-                &mut bs,
-                info,
-                scf,
-                layer3gr_limit,
-            );
-        });
+        let layer3gr_limit = bs.position as i32 + i32::from(info.part_23_length);
+        decode_scalefactors(
+            &decoder.header,
+            &mut ist_pos[channel],
+            bs,
+            info,
+            scf,
+            channel as _,
+        );
+        huffman(&mut grbuf[(channel * 576)..], bs, info, scf, layer3gr_limit);
     }
 
     if header::test_1_stereo(&decoder.header) {
@@ -515,7 +507,7 @@ fn intensity_stereo(
 
 pub fn huffman(
     dst: &mut [f32],
-    bits: &mut Bits,
+    bs: &mut BitStream<'_>,
     gr_info: &GrInfo,
     scf: &[f32],
     layer3gr_limit: i32,
@@ -684,7 +676,7 @@ pub fn huffman(
         bs_next as f64 * 8.0 - 24.0 + f64::from(bs_sh)
     }
 
-    fn check_bits(bs: &Bits, bs_next: &mut usize, bs_sh: &mut i32, bs_cache: &mut u32) {
+    fn check_bits(bs: &BitStream<'_>, bs_next: &mut usize, bs_sh: &mut i32, bs_cache: &mut u32) {
         while *bs_sh >= 0 {
             let byte = u32::from(bs.data[*bs_next]);
             *bs_next += 1;
@@ -697,16 +689,16 @@ pub fn huffman(
     let mut ireg = 0;
     let mut big_val_cnt: i32 = gr_info.big_values.into();
     let mut sfb = 0;
-    let mut bs_next = bits.position / 8;
+    let mut bs_next = bs.position / 8;
     let mut scf_next = 0;
-    let mut bs_cache = bits
+    let mut bs_cache = bs
         .data
         .iter()
         .skip(bs_next)
         .take(4)
         .fold(0, |acc, &byte| (acc * 256 + u32::from(byte)))
-        << (bits.position & 7);
-    let mut bs_sh = (bits.position as i32 & 7) - 8;
+        << (bs.position & 7);
+    let mut bs_sh = (bs.position as i32 & 7) - 8;
     bs_next += 4;
     let mut dst_pos = 0;
     let table = match gr_info.sfb_table {
@@ -743,7 +735,7 @@ pub fn huffman(
                     if lsb == 15 && 0 != linbits {
                         lsb = (lsb as u32).wrapping_add(peek_bits(bs_cache, linbits)) as i32;
                         flush_bits(&mut bs_cache, &mut bs_sh, linbits);
-                        check_bits(bits, &mut bs_next, &mut bs_sh, &mut bs_cache);
+                        check_bits(bs, &mut bs_next, &mut bs_sh, &mut bs_cache);
                         dst[dst_pos] = one
                             * pow_43(lsb)
                             * if bs_cache > i32::max_value() as u32 {
@@ -766,7 +758,7 @@ pub fn huffman(
                     dst_pos += 1;
                     leaf >>= 4
                 }
-                check_bits(bits, &mut bs_next, &mut bs_sh, &mut bs_cache);
+                check_bits(bs, &mut bs_next, &mut bs_sh, &mut bs_cache);
                 pairs_to_decode -= 1;
                 if 0 == pairs_to_decode {
                     break;
@@ -833,10 +825,10 @@ pub fn huffman(
         }
         deq_count1(one, 2);
         deq_count1(one, 3);
-        check_bits(bits, &mut bs_next, &mut bs_sh, &mut bs_cache);
+        check_bits(bs, &mut bs_next, &mut bs_sh, &mut bs_cache);
         dst_pos += 4;
     }
-    bits.position = layer3gr_limit as usize;
+    bs.position = layer3gr_limit as usize;
 }
 
 fn pow_43(mut x: i32) -> f32 {
