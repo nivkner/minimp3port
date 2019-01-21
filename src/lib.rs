@@ -92,22 +92,22 @@ pub fn decode_frame(
             for igr in 0..count {
                 unsafe {
                     ptr::write_bytes(&mut scratch.grbuf, 0, 1);
-                    l3::decode(
-                        decoder,
-                        &mut scratch,
-                        &mut scratch_bs,
-                        &gr_info[((igr * info.channels) as _)..],
-                        info.channels as _,
-                    );
-                    decoder::synth_granule(
-                        &mut decoder.qmf_state,
-                        &mut scratch.grbuf,
-                        18,
-                        info.channels as usize,
-                        &mut pcm_view[pcm_pos..],
-                        &mut scratch.syn,
-                    );
-                };
+                }
+                l3::decode(
+                    decoder,
+                    &mut scratch,
+                    &mut scratch_bs,
+                    &gr_info[((igr * info.channels) as _)..],
+                    info.channels as _,
+                );
+                decoder::synth_granule(
+                    &mut decoder.qmf_state,
+                    &mut scratch.grbuf,
+                    18,
+                    info.channels as usize,
+                    &mut pcm_view[pcm_pos..],
+                    &mut scratch.syn,
+                );
                 pcm_pos += 576 * info.channels as usize;
             }
             l3::save_reservoir(decoder, &mut scratch_bs);
