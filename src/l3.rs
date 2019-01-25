@@ -415,8 +415,10 @@ pub fn decode(
             }
             _ => (),
         }
+        if aa_bands > 0 {
+            antialias(&mut scratch.grbuf[(channel * 576)..], aa_bands as usize)
+        }
         unsafe {
-            ffi::L3_antialias(scratch.grbuf[(channel * 576)..].as_mut_ptr(), aa_bands);
             ffi::L3_imdct_gr(
                 scratch.grbuf[(channel * 576)..].as_mut_ptr(),
                 decoder.mdct_overlap[channel].as_mut_ptr(),
@@ -424,6 +426,39 @@ pub fn decode(
                 n_long_bands as u32,
             );
             ffi::L3_change_sign(scratch.grbuf[(channel * 576)..].as_mut_ptr());
+        }
+    }
+}
+
+fn antialias(grbuf: &mut [f32], nbands: usize) {
+    let g_aa: [[f32; 8]; 2] = [
+        [
+            0.857_492_9,
+            0.881_742,
+            0.949_628_65,
+            0.983_314_6,
+            0.995_517_8,
+            0.999_160_6,
+            0.999_899_2,
+            0.999_993_15,
+        ],
+        [
+            0.514_495_73,
+            0.471_731_96,
+            0.313_377_44,
+            0.181_913_2,
+            0.094_574_19,
+            0.040_965_58,
+            0.014_198_56,
+            0.003_699_97,
+        ],
+    ];
+    for chunk in grbuf[10..].chunks_mut(18).take(nbands) {
+        for i in 0..8 {
+            let u = chunk[8 + i];
+            let d = chunk[7 - i];
+            chunk[8 + i] = u * g_aa[0][i] - d * g_aa[1][i];
+            chunk[7 - i] = u * g_aa[1][i] + d * g_aa[0][i];
         }
     }
 }
