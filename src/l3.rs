@@ -425,9 +425,18 @@ pub fn decode(
                 gr_info.block_type.into(),
                 n_long_bands as u32,
             );
-            ffi::L3_change_sign(scratch.grbuf[(channel * 576)..].as_mut_ptr());
         }
+        change_sign(&mut scratch.grbuf[(channel * 576)..]);
     }
+}
+
+fn change_sign(grbuf: &mut [f32]) {
+    grbuf[18..]
+        .chunks_mut(36)
+        .take(16)
+        .flat_map(|chunk| chunk.iter_mut().skip(1).take(18))
+        .step_by(2)
+        .for_each(|gr| *gr *= -1.0);
 }
 
 fn antialias(grbuf: &mut [f32], nbands: usize) {
