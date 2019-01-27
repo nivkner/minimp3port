@@ -415,9 +415,7 @@ pub fn decode(
             }
             _ => (),
         }
-        if aa_bands > 0 {
-            antialias(&mut scratch.grbuf[(channel * 576)..], aa_bands)
-        }
+        antialias(&mut scratch.grbuf[(channel * 576)..], aa_bands);
         imdct_gr(
             &mut scratch.grbuf[(channel * 576)..],
             &mut decoder.mdct_overlap[channel],
@@ -429,7 +427,7 @@ pub fn decode(
 }
 
 fn imdct_gr(mut grbuf: &mut [f32], mut overlap: &mut [f32], block_type: u8, n_long_bands: usize) {
-    let g_mdct_window: [[f32; 18]; 2] = [
+    let g_mdct_window = [
         [
             0.999_048_23,
             0.991_444_9,
