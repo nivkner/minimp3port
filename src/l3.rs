@@ -583,14 +583,7 @@ fn intensity_stereo(
         Some(SFBTable::Mixed(tab, extra)) => (true, tab, 30 + usize::from(extra)),
         None => (false, &[] as _, 0),
     };
-    unsafe {
-        ffi::L3_stereo_top_band(
-            left[576..].as_mut_ptr(),
-            table.as_ptr(),
-            n_sfb as i32,
-            max_band.as_mut_ptr(),
-        );
-    }
+    stereo_top_band(&left[576..], table, n_sfb, &mut max_band);
 
     if !has_short {
         let max_val = *max_band.iter().max().unwrap();
@@ -617,6 +610,19 @@ fn intensity_stereo(
             max_band.as_mut_ptr(),
             scalefac_next,
         );
+    }
+}
+
+fn stereo_top_band(right: &[f32], sfb: &[u8], nbands: usize, max_band: &mut [i32]) {
+    max_band[..3].copy_from_slice(&[-1, -1, -1]);
+    let last_pos = right.iter().rposition(|val| *val != 0.0).unwrap_or(0);
+
+    let mut offset = 0;
+    let mut i = 0;
+    while i < nbands && offset < last_pos {
+        max_band[i % 3] = i as i32;
+        offset += sfb[i] as usize;
+        i += 1;
     }
 }
 
