@@ -391,24 +391,24 @@ pub fn decode(
 
     for (channel, gr_info) in native_gr_info.iter().enumerate().take(channel_num) {
         let mut aa_bands = 31;
-        let n_long_bands = if gr_info.mixed_block {
+        let n_long_bands: usize = if gr_info.mixed_block {
             2 << (header::get_my_sample_rate(&decoder.header) == 2) as usize
         } else {
             0
         };
         match gr_info.sfb_table {
             Some(SFBTable::Short(table)) => {
-                aa_bands = n_long_bands - 1;
+                aa_bands = n_long_bands.saturating_sub(1);
                 reorder(
-                    &mut scratch.grbuf[(channel * 576 + n_long_bands as usize * 18)..],
+                    &mut scratch.grbuf[(channel * 576 + n_long_bands * 18)..],
                     &mut scratch.syn,
                     table,
                 );
             }
             Some(SFBTable::Mixed(table, extra)) => {
-                aa_bands = n_long_bands - 1;
+                aa_bands = n_long_bands.saturating_sub(1);
                 reorder(
-                    &mut scratch.grbuf[(channel * 576 + n_long_bands as usize * 18)..],
+                    &mut scratch.grbuf[(channel * 576 + n_long_bands * 18)..],
                     &mut scratch.syn,
                     &table[(extra as usize)..],
                 );
@@ -416,18 +416,91 @@ pub fn decode(
             _ => (),
         }
         if aa_bands > 0 {
-            antialias(&mut scratch.grbuf[(channel * 576)..], aa_bands as usize)
+            antialias(&mut scratch.grbuf[(channel * 576)..], aa_bands)
         }
-        unsafe {
-            ffi::L3_imdct_gr(
-                scratch.grbuf[(channel * 576)..].as_mut_ptr(),
-                decoder.mdct_overlap[channel].as_mut_ptr(),
-                gr_info.block_type.into(),
-                n_long_bands as u32,
-            );
-        }
+        imdct_gr(
+            &mut scratch.grbuf[(channel * 576)..],
+            &mut decoder.mdct_overlap[channel],
+            gr_info.block_type,
+            n_long_bands,
+        );
         change_sign(&mut scratch.grbuf[(channel * 576)..]);
     }
+}
+
+fn imdct_gr(mut grbuf: &mut [f32], mut overlap: &mut [f32], block_type: u8, n_long_bands: usize) {
+    let g_mdct_window: [[f32; 18]; 2] = [
+        [
+            0.999_048_23,
+            0.991_444_9,
+            0.976_296,
+            0.953_716_93,
+            0.923_879_5,
+            0.887_010_8,
+            0.843_391_5,
+            0.793_353_3,
+            0.737_277_3,
+            0.043_619_38,
+            0.130_526_19,
+            0.216_439_6,
+            0.300_705_8,
+            0.382_683_43,
+            0.461_748_6,
+            0.537_299_63,
+            0.608_761_4,
+            0.675_590_2,
+        ],
+        [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            0.991_444_9,
+            0.923_879_5,
+            0.793_353_3,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.130_526_19,
+            0.382_683_43,
+            0.608_761_4,
+        ],
+    ];
+    if 0 != n_long_bands {
+        unsafe {
+            ffi::L3_imdct36(
+                grbuf.as_mut_ptr(),
+                overlap.as_mut_ptr(),
+                g_mdct_window[0].as_ptr(),
+                n_long_bands as i32,
+            )
+        }
+        grbuf = &mut grbuf[(18 * n_long_bands)..];
+        overlap = &mut overlap[(9 * n_long_bands)..];
+    }
+    if block_type == 2 {
+        unsafe {
+            ffi::L3_imdct_short(
+                grbuf.as_mut_ptr(),
+                overlap.as_mut_ptr(),
+                (32 - n_long_bands) as i32,
+            )
+        }
+    } else {
+        unsafe {
+            ffi::L3_imdct36(
+                grbuf.as_mut_ptr(),
+                overlap.as_mut_ptr(),
+                g_mdct_window[(block_type == 3) as usize].as_ptr(),
+                (32 - n_long_bands) as i32,
+            )
+        }
+    };
 }
 
 fn change_sign(grbuf: &mut [f32]) {
