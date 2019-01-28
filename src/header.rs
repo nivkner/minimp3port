@@ -68,6 +68,11 @@ pub fn is_ms_stereo(hdr: &[u8]) -> bool {
     hdr[3] & 0xE0 == 0x60
 }
 
+#[inline]
+pub fn test_ms_stereo(hdr: &[u8]) -> bool {
+    hdr[3] & 0x20 != 0
+}
+
 pub fn is_valid(hdr: &[u8]) -> bool {
     hdr[0] == 0xFF
         && ((hdr[1] & 0xF0) == 0xF0 || (hdr[1] & 0xFE) == 0xE2)

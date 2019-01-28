@@ -601,16 +601,7 @@ fn intensity_stereo(
             ist_pos[prev]
         };
     }
-    unsafe {
-        ffi::L3_stereo_process(
-            left.as_mut_ptr(),
-            ist_pos.as_mut_ptr(),
-            table.as_ptr(),
-            hdr.as_ptr(),
-            max_band.as_mut_ptr(),
-            scalefac_next,
-        );
-    }
+    stereo_process(left, ist_pos, table, hdr, &max_band, scalefac_next);
 }
 
 fn stereo_top_band(right: &[f32], sfb: &[u8], nbands: usize, max_band: &mut [i32]) {
@@ -623,6 +614,64 @@ fn stereo_top_band(right: &[f32], sfb: &[u8], nbands: usize, max_band: &mut [i32
         max_band[i % 3] = i as i32;
         offset += sfb[i] as usize;
         i += 1;
+    }
+}
+
+fn stereo_process(
+    mut left: &mut [f32],
+    ist_pos: &[u8],
+    sfb: &[u8],
+    hdr: &[u8],
+    max_band: &[i32],
+    mpeg2_sh: i32,
+) {
+    let g_pan: [f32; 14] = [
+        0.0,
+        1.0,
+        0.211_324_87,
+        0.788_675_1,
+        0.366_025_4,
+        0.633_974_6,
+        0.5,
+        0.5,
+        0.633_974_6,
+        0.366_025_4,
+        0.788_675_1,
+        0.211_324_87,
+        1.0,
+        0.0,
+    ];
+    let max_pos = if header::test_mpeg1(hdr) { 7 } else { 64 };
+    for (i, (&sfb, &ipos)) in sfb
+        .iter()
+        .take_while(|&sfb| *sfb != 0)
+        .zip(ist_pos.iter())
+        .enumerate()
+    {
+        if i as i32 > max_band[i % 3] && ipos < max_pos {
+            let s: f32 = if header::test_ms_stereo(hdr) {
+                core::f32::consts::SQRT_2
+            } else {
+                1.0
+            };
+            let (kl, kr) = if header::test_mpeg1(hdr) {
+                (g_pan[2 * ipos as usize], g_pan[2 * ipos as usize + 1])
+            } else {
+                let ldexp_q2 =
+                    unsafe { ffi::L3_ldexp_q2(1.0, i32::from((ipos + 1) >> 1 << mpeg2_sh)) };
+                if ipos & 1 != 0 {
+                    (ldexp_q2, 1.0)
+                } else {
+                    (1.0, ldexp_q2)
+                }
+            };
+            unsafe {
+                ffi::L3_intensity_stereo_band(left.as_mut_ptr(), i32::from(sfb), kl * s, kr * s)
+            };
+        } else if header::test_ms_stereo(hdr) {
+            unsafe { ffi::L3_midside_stereo(left.as_mut_ptr(), i32::from(sfb)) };
+        }
+        left = &mut left[(sfb as usize)..];
     }
 }
 
