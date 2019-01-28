@@ -18,7 +18,7 @@ fn decoder_init(dec: &mut ffi::mp3dec_t) {
 }
 
 pub const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
-const HDR_SIZE: i32 = 4;
+const HDR_SIZE: usize = 4;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
 const SHORT_BLOCK_TYPE: u8 = 2;
@@ -36,9 +36,11 @@ pub fn decode_frame(
     let mut frame_size = 0;
     if mp3.len() > 4 && decoder.header[0] == 0xff && header::compare(&decoder.header, mp3) {
         frame_size = header::frame_bytes(mp3, decoder.free_format_bytes) + header::padding(mp3);
-        if frame_size != mp3.len() as _
-            && (frame_size + HDR_SIZE > mp3.len() as i32
-                || !header::compare(mp3, &mp3[(frame_size as _)..]))
+        // the condition is arranged such that if the frame size is too big
+        // the expression would short-circuit before slicing the mp3 buffer
+        if !(frame_size == mp3.len() as _
+            || (frame_size as usize).saturating_add(HDR_SIZE) <= mp3.len()
+                && header::compare(mp3, &mp3[(frame_size as _)..]))
         {
             frame_size = 0;
         }
@@ -55,7 +57,7 @@ pub fn decode_frame(
     }
 
     let hdr = &mp3[(i as _)..];
-    decoder.header.copy_from_slice(&hdr[..(HDR_SIZE as _)]);
+    decoder.header.copy_from_slice(&hdr[..HDR_SIZE]);
     info.frame_bytes = i + frame_size;
     info.channels = if header::is_mono(hdr) { 1 } else { 2 };
     info.hz = header::sample_rate_hz(hdr);
@@ -69,7 +71,7 @@ pub fn decode_frame(
     let pcm_view = pcm.unwrap();
     let mut pcm_pos = 0;
 
-    let mut bs_frame = BitStream::new(&hdr[(HDR_SIZE as _)..(frame_size as _)]);
+    let mut bs_frame = BitStream::new(&hdr[HDR_SIZE..(frame_size as _)]);
     if header::is_crc(hdr) {
         bs_frame.position += 16;
     }

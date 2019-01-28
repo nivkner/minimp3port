@@ -22,7 +22,7 @@ impl Default for Scratch {
 
 pub fn find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
     let valid_frames = mp3
-        .windows(HDR_SIZE as _)
+        .windows(HDR_SIZE)
         .enumerate()
         .filter(|(_, hdr)| header::is_valid(hdr))
         .map(|(pos, _)| pos);
@@ -31,15 +31,15 @@ pub fn find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut
         let mut frame_bytes = header::frame_bytes(mp3_view, *free_format_bytes);
         let mut frame_and_padding = frame_bytes + header::padding(mp3_view);
 
-        let mut k = HDR_SIZE;
+        let mut k = HDR_SIZE as i32;
         while frame_bytes == 0
             && k < MAX_FREE_FORMAT_FRAME_SIZE
-            && pos as i32 + 2 * k < mp3.len() as i32 - HDR_SIZE
+            && pos as i32 + 2 * k < mp3.len() as i32 - HDR_SIZE as i32
         {
             if header::compare(mp3_view, &mp3_view[(k as _)..]) {
                 let fb = k - header::padding(mp3_view);
                 let nextfb = fb + header::padding(&mp3_view[(k as _)..]);
-                if pos as i32 + k + nextfb + HDR_SIZE < mp3.len() as i32
+                if pos as i32 + k + nextfb + (HDR_SIZE as i32) < mp3.len() as i32
                     && header::compare(mp3_view, &mp3_view[((k + nextfb) as _)..])
                 {
                     frame_and_padding = k;
@@ -62,14 +62,14 @@ pub fn find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut
     }
     *ptr_frame_bytes = 0;
     // match c version behavior, returns 0 when len < 4
-    mp3.len().saturating_sub(HDR_SIZE as _) as i32
+    mp3.len().saturating_sub(HDR_SIZE) as i32
 }
 
 pub fn match_frame(hdr: &[u8], frame_bytes: i32) -> bool {
     let mut i = 0;
     for nmatch in 0..MAX_FRAME_SYNC_MATCHES {
         i += (header::frame_bytes(&hdr[i..], frame_bytes) + header::padding(&hdr[i..])) as usize;
-        if i + HDR_SIZE as usize > hdr.len() {
+        if i + HDR_SIZE > hdr.len() {
             return nmatch > 0;
         } else if !header::compare(hdr, &hdr[i..]) {
             return false;
