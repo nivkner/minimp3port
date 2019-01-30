@@ -32,7 +32,7 @@ fn main() {
                 .zip(bytes.iter_mut())
                 .for_each(|(from, to)| *to = from);
             decoder.free_format_bytes = i32::from_le_bytes(bytes);
-            decode_frame(&mut decoder, &data, Some(&mut pcm), &mut info);
+            decode_frame(&mut decoder, &data, &mut pcm, &mut info);
         });
     }
 }

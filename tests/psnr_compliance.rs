@@ -139,7 +139,7 @@ fn load_buffer(
     let mut buf_slice = &buf[(id3v2size as usize)..];
     let mut samples: i32;
     loop {
-        samples = decode_frame(dec, buf_slice, Some(&mut pcm), &mut frame_info);
+        samples = decode_frame(dec, buf_slice, &mut pcm, &mut frame_info);
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
         if 0 != samples || frame_info.frame_bytes == 0 {
             break;
@@ -166,7 +166,7 @@ fn load_buffer(
         }
     }
     loop {
-        samples = decode_frame(dec, buf_slice, Some(&mut pcm), &mut frame_info);
+        samples = decode_frame(dec, buf_slice, &mut pcm, &mut frame_info);
         let all_samples = samples as usize * frame_info.channels as usize;
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
 

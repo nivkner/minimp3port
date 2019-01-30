@@ -30,7 +30,7 @@ const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
 pub fn decode_frame(
     decoder: &mut Decoder,
     mp3: &[u8],
-    pcm: Option<&mut [i16]>,
+    pcm: &mut [i16],
     info: &mut FrameInfo,
 ) -> i32 {
     let mut frame_size = 0;
@@ -64,11 +64,6 @@ pub fn decode_frame(
     info.layer = (4 - header::get_layer(hdr)).into();
     info.bitrate_kbps = header::bitrate_kbps(hdr);
 
-    if pcm.is_none() {
-        return header::frame_samples(hdr);
-    }
-
-    let pcm_view = pcm.unwrap();
     let mut pcm_pos = 0;
 
     let mut bs_frame = BitStream::new(&hdr[HDR_SIZE..(frame_size as _)]);
@@ -107,7 +102,7 @@ pub fn decode_frame(
                     &mut scratch.grbuf,
                     18,
                     info.channels as usize,
-                    &mut pcm_view[pcm_pos..],
+                    &mut pcm[pcm_pos..],
                     &mut scratch.syn,
                 );
                 pcm_pos += 576 * info.channels as usize;
@@ -148,7 +143,7 @@ pub fn decode_frame(
                         &mut scratch.grbuf,
                         12,
                         info.channels as usize,
-                        &mut pcm_view[pcm_pos..],
+                        &mut pcm[pcm_pos..],
                         &mut scratch.syn,
                     );
                     ptr::write_bytes(&mut scratch.grbuf, 0, 1);
