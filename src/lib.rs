@@ -5,9 +5,9 @@ mod bits;
 mod decoder;
 mod ffi;
 mod header;
+mod l12;
 mod l3;
 
-use core::mem;
 use core::ptr;
 
 use crate::bits::BitStream;
@@ -113,14 +113,19 @@ pub fn decode_frame(
             return 0;
         }
     } else {
-        let mut bs_copy = unsafe { bs_frame.bs_copy() };
-        let mut sci = unsafe {
-            let mut sci: ffi::L12_scale_info = mem::zeroed();
-            ffi::L12_read_scale_info(hdr.as_ptr(), &mut bs_copy, &mut sci);
-            ptr::write_bytes(&mut scratch.grbuf, 0, 1);
-            sci
+        let mut sci = ffi::L12_scale_info {
+            scf: [0.0; 192],
+            total_bands: 0,
+            stereo_bands: 0,
+            bitalloc: [0; 64],
+            scfcod: [0; 64],
         };
+        l12::read_scale_info(hdr, &mut bs_frame, &mut sci);
+        unsafe {
+            ptr::write_bytes(&mut scratch.grbuf, 0, 1);
+        }
         let mut i = 0;
+        let mut bs_copy = unsafe { bs_frame.bs_copy() };
         for igr in 0..3 {
             unsafe {
                 i += ffi::L12_dequantize_granule(
