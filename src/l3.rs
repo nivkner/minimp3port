@@ -513,10 +513,8 @@ fn imdct12(x: &[f32], dst: &mut [f32], overlap: &mut [f32]) {
     ];
     let mut co: [f32; 3] = [0.0; 3];
     let mut si: [f32; 3] = [0.0; 3];
-    unsafe {
-        ffi::L3_idct3(-x[0], x[6] + x[3], x[12] + x[9], co.as_mut_ptr());
-        ffi::L3_idct3(x[15], x[12] - x[9], x[6] - x[3], si.as_mut_ptr());
-    }
+    idct3(-x[0], x[6] + x[3], x[12] + x[9], &mut co);
+    idct3(x[15], x[12] - x[9], x[6] - x[3], &mut si);
     si[1] *= -1.0;
     for i in 0..3 {
         let ovl: f32 = overlap[i];
@@ -525,6 +523,14 @@ fn imdct12(x: &[f32], dst: &mut [f32], overlap: &mut [f32]) {
         dst[i] = ovl * g_twid3[2 - i] - sum * g_twid3[5 - i];
         dst[5 - i] = ovl * g_twid3[5 - i] + sum * g_twid3[2 - i];
     }
+}
+
+fn idct3(x0: f32, x1: f32, x2: f32, dst: &mut [f32]) {
+    let m1: f32 = x1 * 0.866_025_4;
+    let a1: f32 = x0 - x2 * 0.5;
+    dst[0] = a1 + m1;
+    dst[1] = x0 + x2;
+    dst[2] = a1 - m1;
 }
 
 fn imdct36(grbuf: &mut [f32], overlap: &mut [f32], window: &[f32], nbands: usize) {
