@@ -11,9 +11,9 @@ use core::mem;
 use core::ptr;
 
 use crate::bits::BitStream;
-pub use crate::ffi::{mp3dec_frame_info_t, mp3dec_init, mp3dec_t};
+pub use crate::decoder::{Decoder, FrameInfo, Scratch};
 
-fn decoder_init(dec: &mut ffi::mp3dec_t) {
+fn decoder_init(dec: &mut Decoder) {
     dec.header[0] = 0
 }
 
@@ -28,10 +28,10 @@ const MAX_SCF: i32 = 255 + BITS_DEQUANTIZER_OUT * 4 - 210;
 const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
 
 pub fn decode_frame(
-    decoder: &mut ffi::mp3dec_t,
+    decoder: &mut Decoder,
     mp3: &[u8],
     pcm: Option<&mut [i16]>,
-    info: &mut ffi::mp3dec_frame_info_t,
+    info: &mut FrameInfo,
 ) -> i32 {
     let mut frame_size = 0;
     if mp3.len() > 4 && decoder.header[0] == 0xff && header::compare(&decoder.header, mp3) {
@@ -76,7 +76,7 @@ pub fn decode_frame(
         bs_frame.position += 16;
     }
 
-    let mut scratch = decoder::Scratch::default();
+    let mut scratch = Scratch::default();
     if info.layer == 3 {
         let mut gr_info = [l3::GrInfo::default(); 4];
         let main_data_begin = l3::read_side_info(&mut bs_frame, &mut gr_info, hdr);

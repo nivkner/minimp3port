@@ -1,7 +1,8 @@
 use core::cmp;
 
 use crate::bits::BitStream;
-use crate::{decoder, ffi, header};
+use crate::decoder::{Decoder, Scratch};
+use crate::header;
 use crate::{BITS_DEQUANTIZER_OUT, MAX_BITRESERVOIR_BYTES, MAX_SCFI, SHORT_BLOCK_TYPE};
 
 #[derive(Copy, Clone, Default)]
@@ -194,7 +195,7 @@ pub fn read_side_info(bs: &mut BitStream<'_>, gr: &mut [GrInfo], hdr: &[u8]) -> 
 }
 
 pub fn restore_reservoir<'d>(
-    decoder: &mut ffi::mp3dec_t,
+    decoder: &mut Decoder,
     bs: &mut BitStream<'_>,
     main_data: &'d mut [u8],
     main_data_begin: u32,
@@ -212,7 +213,7 @@ pub fn restore_reservoir<'d>(
     (scratch_bs, decoder.reserv >= main_data_begin as i32)
 }
 
-pub fn save_reservoir(decoder: &mut ffi::mp3dec_t, bs: &mut BitStream<'_>) {
+pub fn save_reservoir(decoder: &mut Decoder, bs: &mut BitStream<'_>) {
     let mut position = bs.position / 8;
     let mut remains = bs.limit / 8 - position;
     if remains > MAX_BITRESERVOIR_BYTES {
@@ -355,8 +356,8 @@ fn read_scalefactors(
 }
 
 pub fn decode(
-    decoder: &mut ffi::mp3dec_t,
-    scratch: &mut decoder::Scratch,
+    decoder: &mut Decoder,
+    scratch: &mut Scratch,
     bs: &mut BitStream<'_>,
     native_gr_info: &[GrInfo],
     channel_num: usize,

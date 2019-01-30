@@ -3,8 +3,21 @@ use minimp3port::{decode_frame, MINIMP3_MAX_SAMPLES_PER_FRAME};
 
 fn main() {
     let mut pcm = [0; MINIMP3_MAX_SAMPLES_PER_FRAME as usize];
-    let mut info = unsafe { std::mem::zeroed() };
-    let mut decoder: minimp3port::mp3dec_t = unsafe { std::mem::zeroed() };
+    let mut info = minimp3port::FrameInfo {
+        frame_bytes: 0,
+        channels: 0,
+        hz: 0,
+        layer: 0,
+        bitrate_kbps: 0,
+    };;
+    let mut decoder = minimp3port::Decoder {
+        mdct_overlap: [[0.; 288]; 2],
+        qmf_state: [0.; 960],
+        reserv: 0,
+        free_format_bytes: 0,
+        header: [0; 4],
+        reserv_buf: [0; 511],
+    };
 
     loop {
         fuzz!(|data: &[u8]| {

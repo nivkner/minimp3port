@@ -2,6 +2,25 @@ use crate::{ffi, header};
 use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
 #[derive(Copy, Clone)]
+pub struct Decoder {
+    pub mdct_overlap: [[f32; 288]; 2],
+    pub qmf_state: [f32; 960],
+    pub reserv: i32,
+    pub free_format_bytes: i32,
+    pub header: [u8; 4],
+    pub reserv_buf: [u8; 511],
+}
+
+#[derive(Copy, Clone)]
+pub struct FrameInfo {
+    pub frame_bytes: i32,
+    pub channels: i32,
+    pub hz: i32,
+    pub layer: i32,
+    pub bitrate_kbps: i32,
+}
+
+#[derive(Copy, Clone)]
 pub struct Scratch {
     pub grbuf: [f32; 576 * 2],
     pub scf: [f32; 40],

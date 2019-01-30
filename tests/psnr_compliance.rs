@@ -116,13 +116,13 @@ struct mp3dec_file_info_t {
 
 /* decode whole buffer block */
 fn load_buffer(
-    dec: &mut mp3dec_t,
+    dec: &mut Decoder,
     buf: &[u8],
     info: &mut mp3dec_file_info_t,
     ref_buffer: &[i16],
 ) -> (f64, i32) {
     let mut pcm: [i16; 2304] = [0; 2304];
-    let mut frame_info: mp3dec_frame_info_t = mp3dec_frame_info_t {
+    let mut frame_info = FrameInfo {
         frame_bytes: 0,
         channels: 0,
         hz: 0,
@@ -137,7 +137,6 @@ fn load_buffer(
         return (MSE, maxdiff);
     }
     let mut buf_slice = &buf[(id3v2size as usize)..];
-    unsafe { mp3dec_init(dec) };
     let mut samples: i32;
     loop {
         samples = decode_frame(dec, buf_slice, Some(&mut pcm), &mut frame_info);
@@ -236,7 +235,7 @@ fn mse(samples: usize, frame_buf: &[i16], buf_ref: &[i16]) -> (f64, i32) {
 }
 
 fn decode(input_buffer: &[u8], buf: &[u8], expected_samples: usize, expected_sample_rate: usize) {
-    let mut mp3d: mp3dec_t = mp3dec_t {
+    let mut mp3d = Decoder {
         mdct_overlap: [[0.; 288]; 2],
         qmf_state: [0.; 960],
         reserv: 0,
@@ -244,7 +243,7 @@ fn decode(input_buffer: &[u8], buf: &[u8], expected_samples: usize, expected_sam
         header: [0; 4],
         reserv_buf: [0; 511],
     };
-    let mut info: mp3dec_file_info_t = mp3dec_file_info_t {
+    let mut info = mp3dec_file_info_t {
         samples: 0,
         channels: 0,
         hz: 0,
