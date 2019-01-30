@@ -785,8 +785,7 @@ fn stereo_process(
             let (kl, kr) = if header::test_mpeg1(hdr) {
                 (g_pan[2 * ipos as usize], g_pan[2 * ipos as usize + 1])
             } else {
-                let ldexp_q2 =
-                    unsafe { ffi::L3_ldexp_q2(1.0, i32::from((ipos + 1) >> 1 << mpeg2_sh)) };
+                let ldexp_q2 = ldexp_q2(1.0, i32::from((ipos + 1) >> 1 << mpeg2_sh));
                 if ipos & 1 != 0 {
                     (ldexp_q2, 1.0)
                 } else {
@@ -797,7 +796,7 @@ fn stereo_process(
                 ffi::L3_intensity_stereo_band(left.as_mut_ptr(), i32::from(sfb), kl * s, kr * s)
             };
         } else if header::test_ms_stereo(hdr) {
-            unsafe { ffi::L3_midside_stereo(left.as_mut_ptr(), i32::from(sfb)) };
+            midside_stereo(left, sfb as usize);
         }
         left = &mut left[(sfb as usize)..];
     }
