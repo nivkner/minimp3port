@@ -470,14 +470,7 @@ fn imdct_gr(mut grbuf: &mut [f32], mut overlap: &mut [f32], block_type: u8, n_lo
         ],
     ];
     if 0 != n_long_bands {
-        unsafe {
-            ffi::L3_imdct36(
-                grbuf.as_mut_ptr(),
-                overlap.as_mut_ptr(),
-                g_mdct_window[0].as_ptr(),
-                n_long_bands as i32,
-            )
-        }
+        imdct36(grbuf, overlap, &g_mdct_window[0], n_long_bands);
         grbuf = &mut grbuf[(18 * n_long_bands)..];
         overlap = &mut overlap[(9 * n_long_bands)..];
     }
