@@ -792,13 +792,19 @@ fn stereo_process(
                     (1.0, ldexp_q2)
                 }
             };
-            unsafe {
-                ffi::L3_intensity_stereo_band(left.as_mut_ptr(), i32::from(sfb), kl * s, kr * s)
-            };
+            intensity_stereo_band(left, sfb as usize, kl * s, kr * s);
         } else if header::test_ms_stereo(hdr) {
             midside_stereo(left, sfb as usize);
         }
         left = &mut left[(sfb as usize)..];
+    }
+}
+
+fn intensity_stereo_band(left: &mut [f32], n: usize, kl: f32, kr: f32) {
+    let (left1, left2) = left.split_at_mut(576);
+    for (l1, l2) in left1.iter_mut().zip(left2.iter_mut()).take(n) {
+        *l2 = *l1 * kr;
+        *l1 *= kl;
     }
 }
 
