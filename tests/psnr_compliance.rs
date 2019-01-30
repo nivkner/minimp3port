@@ -11,7 +11,7 @@ macro_rules! test_all {
         // Start a repetition:
         $(
             // each repeat has the name of te module and the name of the files without extentions
-            $element:ident: $string:expr
+            $element:ident: name=$string:literal samples=$samples:literal rate=$rate:literal
         )
         // ...separated by commas...
         ,
@@ -25,7 +25,7 @@ macro_rules! test_all {
 
             #[test]
             fn test() {
-                super::decode(MP3, PCM);
+                super::decode(MP3, PCM, $samples, $rate);
             }
         }
         )*
@@ -33,77 +33,77 @@ macro_rules! test_all {
 }
 
 test_all![
-    ILL2_center2: "ILL2_center2",
-    ILL2_dual: "ILL2_dual",
-    ILL2_dynx22: "ILL2_dynx22",
-    ILL2_dynx31: "ILL2_dynx31",
-    ILL2_dynx32: "ILL2_dynx32",
-    ILL2_ext_switching: "ILL2_ext_switching",
-    ILL2_layer1: "ILL2_layer1",
-    ILL2_layer3: "ILL2_layer3",
-    ILL2_mono: "ILL2_mono",
-    ILL2_multilingual: "ILL2_multilingual",
-    ILL2_overalloc1: "ILL2_overalloc1",
-    ILL2_overalloc2: "ILL2_overalloc2",
-    ILL2_prediction: "ILL2_prediction",
-    ILL2_samples: "ILL2_samples",
-    ILL2_scf63: "ILL2_scf63",
-    ILL2_tca21: "ILL2_tca21",
-    ILL2_tca30: "ILL2_tca30",
-    ILL2_tca30_PC: "ILL2_tca30_PC",
-    ILL2_tca31_PC: "ILL2_tca31_PC",
-    ILL2_tca31_mtx0: "ILL2_tca31_mtx0",
-    ILL2_tca31_mtx2: "ILL2_tca31_mtx2",
-    ILL2_tca32_PC: "ILL2_tca32_PC",
-    ILL2_wrongcrc: "ILL2_wrongcrc",
-    ILL4_ext_id1: "ILL4_ext_id1",
-    ILL4_sync: "ILL4_sync",
-    ILL4_wrong_length1: "ILL4_wrong_length1",
-    ILL4_wrong_length2: "ILL4_wrong_length2",
-    ILL4_wrongcrc: "ILL4_wrongcrc",
-    M2L3_bitrate_16_all: "M2L3_bitrate_16_all",
-    M2L3_bitrate_22_all: "M2L3_bitrate_22_all",
-    M2L3_bitrate_24_all: "M2L3_bitrate_24_all",
-    M2L3_compl24: "M2L3_compl24",
-    M2L3_noise: "M2L3_noise",
-    l1_fl1: "l1-fl1",
-    l1_fl2: "l1-fl2",
-    l1_fl3: "l1-fl3",
-    l1_fl4: "l1-fl4",
-    l1_fl5: "l1-fl5",
-    l1_fl6: "l1-fl6",
-    l1_fl7: "l1-fl7",
-    l1_fl8: "l1-fl8",
-    l2_fl10: "l2-fl10",
-    l2_fl11: "l2-fl11",
-    l2_fl12: "l2-fl12",
-    l2_fl13: "l2-fl13",
-    l2_fl14: "l2-fl14",
-    l2_fl15: "l2-fl15",
-    l2_fl16: "l2-fl16",
-    l2_nonstandard_fl1_fl2_ff: "l2-nonstandard-fl1_fl2_ff",
-    l2_nonstandard_free_format: "l2-nonstandard-free_format",
-    l2_nonstandard_test32_size: "l2-nonstandard-test32-size",
-    l2_test32: "l2-test32",
-    l3_compl: "l3-compl",
-    l3_he_32khz: "l3-he_32khz",
-    l3_he_44khz: "l3-he_44khz",
-    l3_he_48khz: "l3-he_48khz",
-    l3_he_free: "l3-he_free",
-    l3_he_mode: "l3-he_mode",
-    l3_hecommon: "l3-hecommon",
-    l3_id3v2: "l3-id3v2",
-    l3_nonstandard_big_iscf: "l3-nonstandard-big-iscf",
-    l3_nonstandard_compl_sideinfo_bigvalues: "l3-nonstandard-compl-sideinfo-bigvalues",
-    l3_nonstandard_compl_sideinfo_blocktype: "l3-nonstandard-compl-sideinfo-blocktype",
-    l3_nonstandard_compl_sideinfo_size: "l3-nonstandard-compl-sideinfo-size",
-    l3_nonstandard_sideinfo_size: "l3-nonstandard-sideinfo-size",
-    l3_si: "l3-si",
-    l3_si_block: "l3-si_block",
-    l3_si_huff: "l3-si_huff",
-    l3_sin1k0db: "l3-sin1k0db",
-    l3_test45: "l3-test45",
-    l3_test46: "l3-test46"
+    ILL2_center2: name="ILL2_center2" samples=2304 rate=48000,
+    ILL2_dual: name="ILL2_dual" samples=2304 rate=48000,
+    ILL2_dynx22: name="ILL2_dynx22" samples=2304 rate=48000,
+    ILL2_dynx31: name="ILL2_dynx31" samples=2304 rate=48000,
+    ILL2_dynx32: name="ILL2_dynx32" samples=2304 rate=48000,
+    ILL2_ext_switching: name="ILL2_ext_switching" samples=20736 rate=48000,
+    ILL2_layer1: name="ILL2_layer1" samples=2304 rate=44100,
+    ILL2_layer3: name="ILL2_layer3" samples=23040 rate=48000,
+    ILL2_mono: name="ILL2_mono" samples=1152 rate=48000,
+    ILL2_multilingual: name="ILL2_multilingual" samples=2304 rate=48000,
+    ILL2_overalloc1: name="ILL2_overalloc1" samples=2304 rate=48000,
+    ILL2_overalloc2: name="ILL2_overalloc2" samples=0 rate=0,
+    ILL2_prediction: name="ILL2_prediction" samples=2304 rate=48000,
+    ILL2_samples: name="ILL2_samples" samples=2304 rate=48000,
+    ILL2_scf63: name="ILL2_scf63" samples=2304 rate=48000,
+    ILL2_tca21: name="ILL2_tca21" samples=2304 rate=48000,
+    ILL2_tca30: name="ILL2_tca30" samples=2304 rate=48000,
+    ILL2_tca30_PC: name="ILL2_tca30_PC" samples=2304 rate=48000,
+    ILL2_tca31_PC: name="ILL2_tca31_PC" samples=2304 rate=48000,
+    ILL2_tca31_mtx0: name="ILL2_tca31_mtx0" samples=2304 rate=48000,
+    ILL2_tca31_mtx2: name="ILL2_tca31_mtx2" samples=2304 rate=48000,
+    ILL2_tca32_PC: name="ILL2_tca32_PC" samples=2304 rate=48000,
+    ILL2_wrongcrc: name="ILL2_wrongcrc" samples=2304 rate=48000,
+    ILL4_ext_id1: name="ILL4_ext_id1" samples=2304 rate=48000,
+    ILL4_sync: name="ILL4_sync" samples=2304 rate=48000,
+    ILL4_wrong_length1: name="ILL4_wrong_length1" samples=2304 rate=48000,
+    ILL4_wrong_length2: name="ILL4_wrong_length2" samples=2304 rate=48000,
+    ILL4_wrongcrc: name="ILL4_wrongcrc" samples=2304 rate=48000,
+    M2L3_bitrate_16_all: name="M2L3_bitrate_16_all" samples=274176 rate=16000,
+    M2L3_bitrate_22_all: name="M2L3_bitrate_22_all" samples=274176 rate=22050,
+    M2L3_bitrate_24_all: name="M2L3_bitrate_24_all" samples=274176 rate=24000,
+    M2L3_compl24: name="M2L3_compl24" samples=122112 rate=24000,
+    M2L3_noise: name="M2L3_noise" samples=444672 rate=22050,
+    l1_fl1: name="l1-fl1" samples=37632 rate=32000,
+    l1_fl2: name="l1-fl2" samples=37632 rate=44100,
+    l1_fl3: name="l1-fl3" samples=37632 rate=48000,
+    l1_fl4: name="l1-fl4" samples=18816 rate=32000,
+    l1_fl5: name="l1-fl5" samples=37632 rate=48000,
+    l1_fl6: name="l1-fl6" samples=37632 rate=44100,
+    l1_fl7: name="l1-fl7" samples=48384 rate=44100,
+    l1_fl8: name="l1-fl8" samples=37632 rate=44100,
+    l2_fl10: name="l2-fl10" samples=112896 rate=32000,
+    l2_fl11: name="l2-fl11" samples=112896 rate=44100,
+    l2_fl12: name="l2-fl12" samples=112896 rate=48000,
+    l2_fl13: name="l2-fl13" samples=56448 rate=32000,
+    l2_fl14: name="l2-fl14" samples=36864 rate=48000,
+    l2_fl15: name="l2-fl15" samples=36864 rate=48000,
+    l2_fl16: name="l2-fl16" samples=145152 rate=48000,
+    l2_nonstandard_fl1_fl2_ff: name="l2-nonstandard-fl1_fl2_ff" samples=3072 rate=44100,
+    l2_nonstandard_free_format: name="l2-nonstandard-free_format" samples=112896 rate=32000,
+    l2_nonstandard_test32_size: name="l2-nonstandard-test32-size" samples=142848 rate=24000,
+    l2_test32: name="l2-test32" samples=145152 rate=24000,
+    l3_compl: name="l3-compl" samples=248832 rate=48000,
+    l3_he_32khz: name="l3-he_32khz" samples=172800 rate=32000,
+    l3_he_44khz: name="l3-he_44khz" samples=472320 rate=44100,
+    l3_he_48khz: name="l3-he_48khz" samples=172800 rate=48000,
+    l3_he_free: name="l3-he_free" samples=156672 rate=44100,
+    l3_he_mode: name="l3-he_mode" samples=262656 rate=44100,
+    l3_hecommon: name="l3-hecommon" samples=69120 rate=44100,
+    l3_id3v2: name="l3-id3v2" samples=1152 rate=48000,
+    l3_nonstandard_big_iscf: name="l3-nonstandard-big-iscf" samples=2304 rate=12000,
+    l3_nonstandard_compl_sideinfo_bigvalues: name="l3-nonstandard-compl-sideinfo-bigvalues" samples=244224 rate=48000,
+    l3_nonstandard_compl_sideinfo_blocktype: name="l3-nonstandard-compl-sideinfo-blocktype" samples=244224 rate=48000,
+    l3_nonstandard_compl_sideinfo_size: name="l3-nonstandard-compl-sideinfo-size" samples=244224 rate=48000,
+    l3_nonstandard_sideinfo_size: name="l3-nonstandard-sideinfo-size" samples=0 rate=0,
+    l3_si: name="l3-si" samples=135936 rate=44100,
+    l3_si_block: name="l3-si_block" samples=73728 rate=44100,
+    l3_si_huff: name="l3-si_huff" samples=86400 rate=44100,
+    l3_sin1k0db: name="l3-sin1k0db" samples=725760 rate=44100,
+    l3_test45: name="l3-test45" samples=946944 rate=22050,
+    l3_test46: name="l3-test46" samples=288000 rate=22050
 ];
 
 struct mp3dec_file_info_t {
@@ -235,7 +235,7 @@ fn mse(samples: usize, frame_buf: &[i16], buf_ref: &[i16]) -> (f64, i32) {
     (MSE, maxdiff)
 }
 
-fn decode(input_buffer: &[u8], buf: &[u8]) {
+fn decode(input_buffer: &[u8], buf: &[u8], expected_samples: usize, expected_sample_rate: usize) {
     let mut mp3d: mp3dec_t = mp3dec_t {
         mdct_overlap: [[0.; 288]; 2],
         qmf_state: [0.; 960],
@@ -265,6 +265,8 @@ fn decode(input_buffer: &[u8], buf: &[u8]) {
     } else {
         10.0 * (0x7fffu32.pow(2) as f64 / MSE).log10()
     };
+    assert_eq!(info.hz as usize, expected_sample_rate, "sample rate");
+    assert_eq!(info.samples, expected_samples, "number of samples");
     assert!(
         psnr > 96.0,
         "PSNR compliance failed: rate={} samples={} max_diff={} PSNR={}",
