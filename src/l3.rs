@@ -490,15 +490,68 @@ fn imdct_gr(mut grbuf: &mut [f32], mut overlap: &mut [f32], block_type: u8, n_lo
             )
         }
     } else {
-        unsafe {
-            ffi::L3_imdct36(
-                grbuf.as_mut_ptr(),
-                overlap.as_mut_ptr(),
-                g_mdct_window[(block_type == 3) as usize].as_ptr(),
-                (32 - n_long_bands) as i32,
-            )
-        }
+        imdct36(
+            grbuf,
+            overlap,
+            &g_mdct_window[(block_type == 3) as usize],
+            32 - n_long_bands,
+        )
     };
+}
+
+fn imdct36(grbuf: &mut [f32], overlap: &mut [f32], window: &[f32], nbands: usize) {
+    let g_twid9: [f32; 18] = [
+        0.737_277_3,
+        0.793_353_3,
+        0.843_391_5,
+        0.887_010_8,
+        0.923_879_5,
+        0.953_716_93,
+        0.976_296,
+        0.991_444_9,
+        0.999_048_23,
+        0.675_590_2,
+        0.608_761_4,
+        0.537_299_63,
+        0.461_748_6,
+        0.382_683_43,
+        0.300_705_8,
+        0.216_439_6,
+        0.130_526_19,
+        0.043_619_38,
+    ];
+    for (grbuf, overlap) in grbuf
+        .chunks_exact_mut(18)
+        .zip(overlap.chunks_exact_mut(9))
+        .take(nbands)
+    {
+        let mut co: [f32; 9] = [0.; 9];
+        let mut si: [f32; 9] = [0.; 9];
+        co[0] = -grbuf[0];
+        si[0] = grbuf[17];
+        for (i, chunk) in grbuf[1..].chunks_exact(4).enumerate().take(4) {
+            si[8 - 2 * i] = chunk[0] - chunk[1];
+            co[1 + 2 * i] = chunk[0] + chunk[1];
+            si[7 - 2 * i] = chunk[3] - chunk[2];
+            co[2 + 2 * i] = -(chunk[2] + chunk[3]);
+        }
+        unsafe {
+            ffi::L3_dct3_9(co.as_mut_ptr());
+            ffi::L3_dct3_9(si.as_mut_ptr());
+        }
+
+        si[1] = -si[1];
+        si[3] = -si[3];
+        si[5] = -si[5];
+        si[7] = -si[7];
+        for i in 0..9 {
+            let ovl: f32 = overlap[i];
+            let sum: f32 = co[i] * g_twid9[i + 9] + si[i] * g_twid9[i];
+            overlap[i] = co[i] * g_twid9[i] - si[i] * g_twid9[i + 9];
+            grbuf[i] = ovl * window[i] - sum * window[i + 9];
+            grbuf[17 - i] = ovl * window[i + 9] + sum * window[i];
+        }
+    }
 }
 
 fn change_sign(grbuf: &mut [f32]) {
