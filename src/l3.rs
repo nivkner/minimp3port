@@ -475,13 +475,7 @@ fn imdct_gr(mut grbuf: &mut [f32], mut overlap: &mut [f32], block_type: u8, n_lo
         overlap = &mut overlap[(9 * n_long_bands)..];
     }
     if block_type == 2 {
-        unsafe {
-            ffi::L3_imdct_short(
-                grbuf.as_mut_ptr(),
-                overlap.as_mut_ptr(),
-                (32 - n_long_bands) as i32,
-            )
-        }
+        imdct_short(grbuf, overlap, 32 - n_long_bands)
     } else {
         imdct36(
             grbuf,
@@ -490,6 +484,36 @@ fn imdct_gr(mut grbuf: &mut [f32], mut overlap: &mut [f32], block_type: u8, n_lo
             32 - n_long_bands,
         )
     };
+}
+
+fn imdct_short(grbuf: &mut [f32], overlap: &mut [f32], nbands: usize) {
+    let mut tmp: [f32; 18] = [0.0; 18];
+    for (grbuf, overlap) in grbuf
+        .chunks_exact_mut(18)
+        .zip(overlap.chunks_exact_mut(9))
+        .take(nbands as usize)
+    {
+        tmp.copy_from_slice(&grbuf[..18]);
+        grbuf[..6].copy_from_slice(&overlap[..6]);
+        unsafe {
+            ffi::L3_imdct12(
+                tmp.as_mut_ptr(),
+                grbuf[6..].as_mut_ptr(),
+                overlap[6..].as_mut_ptr(),
+            );
+            ffi::L3_imdct12(
+                tmp.as_mut_ptr().offset(1),
+                grbuf[12..].as_mut_ptr(),
+                overlap[6..].as_mut_ptr(),
+            );
+            let (overlap1, overlap2) = overlap.split_at_mut(6);
+            ffi::L3_imdct12(
+                tmp.as_mut_ptr().offset(2),
+                overlap1.as_mut_ptr(),
+                overlap2.as_mut_ptr(),
+            );
+        }
+    }
 }
 
 fn imdct36(grbuf: &mut [f32], overlap: &mut [f32], window: &[f32], nbands: usize) {
