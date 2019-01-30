@@ -299,7 +299,7 @@ pub fn decode_scalefactors(
         }
         Some(SFBTable::Mixed(_, extra)) => {
             let sh = 3 - scf_shift as u8;
-            for iscf in iscf[(extra as usize)..].chunks_mut(3).take(30 / 3) {
+            for iscf in iscf[(extra as usize)..].chunks_exact_mut(3).take(30 / 3) {
                 iscf[0] += gr.subblock_gain[0] << sh;
                 iscf[1] += gr.subblock_gain[1] << sh;
                 iscf[2] += gr.subblock_gain[2] << sh;
@@ -308,7 +308,7 @@ pub fn decode_scalefactors(
         }
         Some(SFBTable::Short(_)) => {
             let sh = 3 - scf_shift as u8;
-            for iscf in iscf.chunks_mut(3).take(39 / 3) {
+            for iscf in iscf.chunks_exact_mut(3).take(39 / 3) {
                 iscf[0] += gr.subblock_gain[0] << sh;
                 iscf[1] += gr.subblock_gain[1] << sh;
                 iscf[2] += gr.subblock_gain[2] << sh;
@@ -586,7 +586,7 @@ fn antialias(grbuf: &mut [f32], nbands: usize) {
             0.003_699_97,
         ],
     ];
-    for chunk in grbuf[10..].chunks_mut(18).take(nbands) {
+    for chunk in grbuf[10..].chunks_exact_mut(18).take(nbands) {
         for i in 0..8 {
             let u = chunk[8 + i];
             let d = chunk[7 - i];
@@ -602,7 +602,11 @@ fn reorder(grbuf: &mut [f32], scratch: &mut [f32], sfb: &[u8]) {
         let len = len as usize;
         let dst = &mut scratch[total_len..];
         let src = &grbuf[total_len..];
-        for (chunk, window) in dst.chunks_mut(3).zip(src.windows(len * 2 + 1)).take(len) {
+        for (chunk, window) in dst
+            .chunks_exact_mut(3)
+            .zip(src.windows(len * 2 + 1))
+            .take(len)
+        {
             chunk[0] = window[0];
             chunk[1] = window[len];
             chunk[2] = window[len * 2];
