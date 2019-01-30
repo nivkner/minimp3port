@@ -563,10 +563,8 @@ fn imdct36(grbuf: &mut [f32], overlap: &mut [f32], window: &[f32], nbands: usize
             si[7 - 2 * i] = chunk[3] - chunk[2];
             co[2 + 2 * i] = -(chunk[2] + chunk[3]);
         }
-        unsafe {
-            ffi::L3_dct3_9(co.as_mut_ptr());
-            ffi::L3_dct3_9(si.as_mut_ptr());
-        }
+        dct3_9(&mut co);
+        dct3_9(&mut si);
 
         si[1] *= -1.0;
         si[3] *= -1.0;
@@ -580,6 +578,45 @@ fn imdct36(grbuf: &mut [f32], overlap: &mut [f32], window: &[f32], nbands: usize
             grbuf[17 - i] = ovl * window[i + 9] + sum * window[i];
         }
     }
+}
+
+fn dct3_9(y: &mut [f32]) {
+    let mut s0 = y[0];
+    let mut s2 = y[2];
+    let mut s4 = y[4];
+    let mut s6 = y[6];
+    let mut s8 = y[8];
+    let mut t0 = s0 + s6 * 0.5f32;
+    s0 -= s6;
+    let mut t4 = (s4 + s2) * 0.939_692_6;
+    let mut t2 = (s8 + s2) * 0.766_044_44;
+    s6 = (s4 - s8) * 0.173_648_18;
+    s4 += s8 - s2;
+    s2 = s0 - s4 * 0.5f32;
+    y[4] = s4 + s0;
+    s8 = t0 - t2 + s6;
+    s0 = t0 - t4 + t2;
+    s4 = t0 + t4 - s6;
+    let mut s1 = y[1];
+    let mut s3 = y[3];
+    let mut s5 = y[5];
+    let mut s7 = y[7];
+    s3 *= 0.866_025_4;
+    t0 = (s5 + s1) * 0.984_807_7;
+    t4 = (s5 - s7) * 0.342_020_15;
+    t2 = (s1 + s7) * 0.642_787_64f32;
+    s1 = (s1 - s5 - s7) * 0.866_025_4;
+    s5 = t0 - s3 - t2;
+    s7 = t4 - s3 - t0;
+    s3 = t4 + s3 - t2;
+    y[0] = s4 - s7;
+    y[1] = s2 + s1;
+    y[2] = s0 - s3;
+    y[3] = s8 + s5;
+    y[5] = s8 - s5;
+    y[6] = s0 + s3;
+    y[7] = s2 - s1;
+    y[8] = s4 + s7;
 }
 
 fn change_sign(grbuf: &mut [f32]) {
