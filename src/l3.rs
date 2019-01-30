@@ -568,10 +568,10 @@ fn imdct36(grbuf: &mut [f32], overlap: &mut [f32], window: &[f32], nbands: usize
             ffi::L3_dct3_9(si.as_mut_ptr());
         }
 
-        si[1] = -si[1];
-        si[3] = -si[3];
-        si[5] = -si[5];
-        si[7] = -si[7];
+        si[1] *= -1.0;
+        si[3] *= -1.0;
+        si[5] *= -1.0;
+        si[7] *= -1.0;
         for i in 0..9 {
             let ovl: f32 = overlap[i];
             let sum: f32 = co[i] * g_twid9[i + 9] + si[i] * g_twid9[i];
