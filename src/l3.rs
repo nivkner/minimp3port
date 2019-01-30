@@ -495,24 +495,35 @@ fn imdct_short(grbuf: &mut [f32], overlap: &mut [f32], nbands: usize) {
     {
         tmp.copy_from_slice(&grbuf[..18]);
         grbuf[..6].copy_from_slice(&overlap[..6]);
-        unsafe {
-            ffi::L3_imdct12(
-                tmp.as_mut_ptr(),
-                grbuf[6..].as_mut_ptr(),
-                overlap[6..].as_mut_ptr(),
-            );
-            ffi::L3_imdct12(
-                tmp.as_mut_ptr().offset(1),
-                grbuf[12..].as_mut_ptr(),
-                overlap[6..].as_mut_ptr(),
-            );
-            let (overlap1, overlap2) = overlap.split_at_mut(6);
-            ffi::L3_imdct12(
-                tmp.as_mut_ptr().offset(2),
-                overlap1.as_mut_ptr(),
-                overlap2.as_mut_ptr(),
-            );
-        }
+        imdct12(&tmp, &mut grbuf[6..], &mut overlap[6..]);
+        imdct12(&tmp[1..], &mut grbuf[12..], &mut overlap[6..]);
+        let (overlap1, overlap2) = overlap.split_at_mut(6);
+        imdct12(&tmp[2..], overlap1, overlap2);
+    }
+}
+
+fn imdct12(x: &[f32], dst: &mut [f32], overlap: &mut [f32]) {
+    let g_twid3: [f32; 6] = [
+        0.793_353_3,
+        0.923_879_5,
+        0.991_444_9,
+        0.608_761_4,
+        0.382_683_43,
+        0.130_526_19,
+    ];
+    let mut co: [f32; 3] = [0.0; 3];
+    let mut si: [f32; 3] = [0.0; 3];
+    unsafe {
+        ffi::L3_idct3(-x[0], x[6] + x[3], x[12] + x[9], co.as_mut_ptr());
+        ffi::L3_idct3(x[15], x[12] - x[9], x[6] - x[3], si.as_mut_ptr());
+    }
+    si[1] *= -1.0;
+    for i in 0..3 {
+        let ovl: f32 = overlap[i];
+        let sum: f32 = co[i] * g_twid3[i + 3] + si[i] * g_twid3[i];
+        overlap[i] = co[i] * g_twid3[i] - si[i] * g_twid3[i + 3];
+        dst[i] = ovl * g_twid3[2 - i] - sum * g_twid3[5 - i];
+        dst[5 - i] = ovl * g_twid3[5 - i] + sum * g_twid3[2 - i];
     }
 }
 
