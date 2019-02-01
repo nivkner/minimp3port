@@ -293,18 +293,6 @@ fn synth(x: &mut [f32], dst: &mut [i16], nch: usize, lins: &mut [f32]) {
     }
 
     #[inline]
-    fn fun0(k: usize, i: usize, lins: &mut [f32], gwin: &[f32], a: &mut [f32], b: &mut [f32]) {
-        let w0 = gwin[k * 2];
-        let w1 = gwin[k * 2 + 1];
-        let vz_offset = OFFSET + 4 * i - k * 64;
-        let vy_offset = OFFSET + 4 * i - (15 - k) * 64;
-        for j in 0..4 {
-            b[j] = lins[vz_offset + j] * w1 + lins[vy_offset + j] * w0;
-            a[j] = lins[vz_offset + j] * w0 - lins[vy_offset + j] * w1;
-        }
-    }
-
-    #[inline]
     fn fun1(k: usize, i: usize, lins: &mut [f32], gwin: &[f32], a: &mut [f32], b: &mut [f32]) {
         let w0 = gwin[k * 2];
         let w1 = gwin[k * 2 + 1];
@@ -341,7 +329,7 @@ fn synth(x: &mut [f32], dst: &mut [i16], nch: usize, lins: &mut [f32]) {
         lins[(OFFSET - 4 * (16 - i) + 2)] = x[(18 * (1 + i))];
         lins[(OFFSET - 4 * (16 - i) + 3)] = x[(18 * (1 + i)) + x_extra];
 
-        fun0(0, i, lins, gwin, &mut a, &mut b);
+        fun1(0, i, lins, gwin, &mut a, &mut b);
         fun2(1, i, lins, gwin, &mut a, &mut b);
         fun1(2, i, lins, gwin, &mut a, &mut b);
         fun2(3, i, lins, gwin, &mut a, &mut b);
