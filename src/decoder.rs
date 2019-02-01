@@ -110,14 +110,12 @@ pub fn synth_granule(
     }
     lins[..(15 * 64)].copy_from_slice(&qmf_state[..(15 * 64)]);
     for i in (0..nbands).step_by(2) {
-        unsafe {
-            ffi::mp3d_synth(
-                grbuf.as_mut_ptr().add(i),
-                pcm.as_mut_ptr().add(32 * nch * i),
-                nch as _,
-                lins.as_mut_ptr().add(i * 64),
-            )
-        }
+        synth(
+            &mut grbuf[i..],
+            &mut pcm[(32 * nch * i)..],
+            nch,
+            &mut lins[(i * 64)..],
+        )
     }
     if nch == 1 {
         for (qmf, lin) in qmf_state
@@ -230,5 +228,137 @@ pub fn dct_2(grbuf: &mut [f32], n: usize) {
         w[18] = t[2][7] + t[3][7];
         w[2 * 18] = t[1][7];
         w[3 * 18] = t[3][7];
+    }
+}
+
+fn synth(x: &mut [f32], dst: &mut [i16], nch: usize, lins: &mut [f32]) {
+    let g_win: [f32; 240] = [
+        -1.0, 26.0, -31.0, 208.0, 218.0, 401.0, -519.0, 2063.0, 2000.0, 4788.0, -5517.0, 7134.0,
+        5959.0, 35640.0, -39336.0, 74992.0, -1.0, 24.0, -35.0, 202.0, 222.0, 347.0, -581.0, 2080.0,
+        1952.0, 4425.0, -5879.0, 7640.0, 5288.0, 33791.0, -41176.0, 74856.0, -1.0, 21.0, -38.0,
+        196.0, 225.0, 294.0, -645.0, 2087.0, 1893.0, 4063.0, -6237.0, 8092.0, 4561.0, 31947.0,
+        -43006.0, 74630.0, -1.0, 19.0, -41.0, 190.0, 227.0, 244.0, -711.0, 2085.0, 1822.0, 3705.0,
+        -6589.0, 8492.0, 3776.0, 30112.0, -44821.0, 74313.0, -1.0, 17.0, -45.0, 183.0, 228.0,
+        197.0, -779.0, 2075.0, 1739.0, 3351.0, -6935.0, 8840.0, 2935.0, 28289.0, -46617.0, 73908.0,
+        -1.0, 16.0, -49.0, 176.0, 228.0, 153.0, -848.0, 2057.0, 1644.0, 3004.0, -7271.0, 9139.0,
+        2037.0, 26482.0, -48390.0, 73415.0, -2.0, 14.0, -53.0, 169.0, 227.0, 111.0, -919.0, 2032.0,
+        1535.0, 2663.0, -7597.0, 9389.0, 1082.0, 24694.0, -50137.0, 72835.0, -2.0, 13.0, -58.0,
+        161.0, 224.0, 72.0, -991.0, 2001.0, 1414.0, 2330.0, -7910.0, 9592.0, 70.0, 22929.0,
+        -51853.0, 72169.0, -2.0, 11.0, -63.0, 154.0, 221.0, 36.0, -1064.0, 1962.0, 1280.0, 2006.0,
+        -8209.0, 9750.0, -998.0, 21189.0, -53534.0, 71420.0, -2.0, 10.0, -68.0, 147.0, 215.0, 2.0,
+        -1137.0, 1919.0, 1131.0, 1692.0, -8491.0, 9863.0, -2122.0, 19478.0, -55178.0, 70590.0,
+        -3.0, 9.0, -73.0, 139.0, 208.0, -29.0, -1210.0, 1870.0, 970.0, 1388.0, -8755.0, 9935.0,
+        -3300.0, 17799.0, -56778.0, 69679.0, -3.0, 8.0, -79.0, 132.0, 200.0, -57.0, -1283.0,
+        1817.0, 794.0, 1095.0, -8998.0, 9966.0, -4533.0, 16155.0, -58333.0, 68692.0, -4.0, 7.0,
+        -85.0, 125.0, 189.0, -83.0, -1356.0, 1759.0, 605.0, 814.0, -9219.0, 9959.0, -5818.0,
+        14548.0, -59838.0, 67629.0, -4.0, 7.0, -91.0, 117.0, 177.0, -106.0, -1428.0, 1698.0, 402.0,
+        545.0, -9416.0, 9916.0, -7154.0, 12980.0, -61289.0, 66494.0, -5.0, 6.0, -97.0, 111.0,
+        163.0, -127.0, -1498.0, 1634.0, 185.0, 288.0, -9585.0, 9838.0, -8540.0, 11455.0, -62684.0,
+        65290.0,
+    ];
+
+    // offset is added instead of taking a subslice because outherwise the indexes are negative
+    const OFFSET: usize = 15 * 64;
+
+    // uses offset numbers because the slices overlap
+    let x_extra = 576 * (nch - 1);
+    let dst_extra = nch - 1;
+
+    let zlin = &mut lins[(OFFSET)..];
+    zlin[4 * 15] = x[18 * 16];
+    zlin[4 * 15 + 1] = x[18 * 16 + x_extra];
+    zlin[4 * 15 + 2] = x[0];
+    zlin[4 * 15 + 3] = x[x_extra];
+    zlin[4 * 31] = x[1 + 18 * 16];
+    zlin[4 * 31 + 1] = x[1 + 18 * 16 + x_extra];
+    zlin[4 * 31 + 2] = x[1];
+    zlin[4 * 31 + 3] = x[1 + x_extra];
+    unsafe {
+        ffi::mp3d_synth_pair(
+            dst[dst_extra..].as_mut_ptr(),
+            nch as i32,
+            lins[(4 * 15 + 1)..].as_mut_ptr(),
+        );
+        ffi::mp3d_synth_pair(
+            dst[(32 * nch + dst_extra)..].as_mut_ptr(),
+            nch as i32,
+            lins[(4 * 15 + 65)..].as_mut_ptr(),
+        );
+        ffi::mp3d_synth_pair(dst.as_mut_ptr(), nch as i32, lins[(4 * 15)..].as_mut_ptr());
+        ffi::mp3d_synth_pair(
+            dst[(32 * nch)..].as_mut_ptr(),
+            nch as i32,
+            lins[(4 * 15 + 64)..].as_mut_ptr(),
+        );
+    }
+
+    #[inline]
+    fn fun0(k: usize, i: usize, lins: &mut [f32], gwin: &[f32], a: &mut [f32], b: &mut [f32]) {
+        let w0 = gwin[k * 2];
+        let w1 = gwin[k * 2 + 1];
+        let vz_offset = OFFSET + 4 * i - k * 64;
+        let vy_offset = OFFSET + 4 * i - (15 - k) * 64;
+        for j in 0..4 {
+            b[j] = lins[vz_offset + j] * w1 + lins[vy_offset + j] * w0;
+            a[j] = lins[vz_offset + j] * w0 - lins[vy_offset + j] * w1;
+        }
+    }
+
+    #[inline]
+    fn fun1(k: usize, i: usize, lins: &mut [f32], gwin: &[f32], a: &mut [f32], b: &mut [f32]) {
+        let w0 = gwin[k * 2];
+        let w1 = gwin[k * 2 + 1];
+        let vz_offset = OFFSET + 4 * i - k * 64;
+        let vy_offset = OFFSET + 4 * i - (15 - k) * 64;
+        for j in 0..4 {
+            b[j] += lins[vz_offset + j] * w1 + lins[vy_offset + j] * w0;
+            a[j] += lins[vz_offset + j] * w0 - lins[vy_offset + j] * w1;
+        }
+    }
+
+    #[inline]
+    fn fun2(k: usize, i: usize, lins: &mut [f32], gwin: &[f32], a: &mut [f32], b: &mut [f32]) {
+        let w0 = gwin[k * 2];
+        let w1 = gwin[k * 2 + 1];
+        let vz_offset = OFFSET + 4 * i - k * 64;
+        let vy_offset = OFFSET + 4 * i - (15 - k) * 64;
+        for j in 0..4 {
+            b[j] += lins[vz_offset + j] * w1 + lins[vy_offset + j] * w0;
+            a[j] += lins[vy_offset + j] * w1 - lins[vz_offset + j] * w0;
+        }
+    }
+
+    for (i, gwin) in (0..15).rev().zip(g_win.chunks_exact(16)) {
+        let mut a: [f32; 4] = [0.0; 4];
+        let mut b: [f32; 4] = [0.0; 4];
+
+        lins[(OFFSET + 4 * i)] = x[(18 * (31 - i))];
+        lins[(OFFSET + 4 * i + 1)] = x[(18 * (31 - i)) + x_extra];
+        lins[(OFFSET + 4 * i + 2)] = x[(1 + 18 * (31 - i))];
+        lins[(OFFSET + 4 * i + 3)] = x[(1 + 18 * (31 - i)) + x_extra];
+        lins[(OFFSET + 4 * (i + 16))] = x[(1 + 18 * (1 + i))];
+        lins[(OFFSET + 4 * (i + 16) + 1)] = x[(1 + 18 * (1 + i)) + x_extra];
+        lins[(OFFSET - 4 * (16 - i) + 2)] = x[(18 * (1 + i))];
+        lins[(OFFSET - 4 * (16 - i) + 3)] = x[(18 * (1 + i)) + x_extra];
+
+        fun0(0, i, lins, gwin, &mut a, &mut b);
+        fun2(1, i, lins, gwin, &mut a, &mut b);
+        fun1(2, i, lins, gwin, &mut a, &mut b);
+        fun2(3, i, lins, gwin, &mut a, &mut b);
+        fun1(4, i, lins, gwin, &mut a, &mut b);
+        fun2(5, i, lins, gwin, &mut a, &mut b);
+        fun1(6, i, lins, gwin, &mut a, &mut b);
+        fun2(7, i, lins, gwin, &mut a, &mut b);
+
+        unsafe {
+            dst[(15 - i) * nch + dst_extra] = ffi::mp3d_scale_pcm(a[1]);
+            dst[(17 + i) * nch + dst_extra] = ffi::mp3d_scale_pcm(b[1]);
+            dst[(15 - i) * nch] = ffi::mp3d_scale_pcm(a[0]);
+            dst[(17 + i) * nch] = ffi::mp3d_scale_pcm(b[0]);
+            dst[(47 - i) * nch + dst_extra] = ffi::mp3d_scale_pcm(a[3]);
+            dst[(49 + i) * nch + dst_extra] = ffi::mp3d_scale_pcm(b[3]);
+            dst[(47 - i) * nch] = ffi::mp3d_scale_pcm(a[2]);
+            dst[(49 + i) * nch] = ffi::mp3d_scale_pcm(b[2]);
+        }
     }
 }
