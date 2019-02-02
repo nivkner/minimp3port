@@ -8,8 +8,6 @@ mod header;
 mod l12;
 mod l3;
 
-use core::ptr;
-
 use crate::bits::BitStream;
 pub use crate::decoder::{Decoder, FrameInfo, Scratch};
 
@@ -50,7 +48,14 @@ pub fn decode_frame(
 
     let mut i = 0;
     if frame_size == 0 {
-        unsafe { ptr::write_bytes(decoder, 0, 1) }
+        *decoder = Decoder {
+            mdct_overlap: [[0.; 288]; 2],
+            qmf_state: [0.; 960],
+            reserv: 0,
+            free_format_bytes: 0,
+            header: [0; 4],
+            reserv_buf: [0; 511],
+        };
         i = decoder::find_frame(mp3, &mut decoder.free_format_bytes, &mut frame_size);
         if frame_size == 0 || i + frame_size > mp3.len() as _ {
             info.frame_bytes = i;
@@ -89,9 +94,7 @@ pub fn decode_frame(
         if success {
             let count = if header::test_mpeg1(hdr) { 2 } else { 1 };
             for igr in 0..count {
-                unsafe {
-                    ptr::write_bytes(&mut scratch.grbuf, 0, 1);
-                }
+                scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
                 l3::decode(
                     decoder,
                     &mut scratch,
@@ -123,9 +126,7 @@ pub fn decode_frame(
             scfcod: [0; 64],
         };
         l12::read_scale_info(hdr, &mut bs_frame, &mut sci);
-        unsafe {
-            ptr::write_bytes(&mut scratch.grbuf, 0, 1);
-        }
+        scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
         let mut i = 0;
         let mut bs_copy = unsafe { bs_frame.bs_copy() };
         for igr in 0..3 {
@@ -153,7 +154,7 @@ pub fn decode_frame(
                         &mut pcm[pcm_pos..],
                         &mut scratch.syn,
                     );
-                    ptr::write_bytes(&mut scratch.grbuf, 0, 1);
+                    scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
                 }
                 pcm_pos += 384 * info.channels as usize;
             }
