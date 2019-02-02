@@ -1,4 +1,4 @@
-use crate::{ffi, header};
+use crate::header;
 use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
 #[derive(Copy, Clone)]
@@ -273,24 +273,14 @@ fn synth(x: &mut [f32], dst: &mut [i16], nch: usize, lins: &mut [f32]) {
     zlin[4 * 31 + 1] = x[1 + 18 * 16 + x_extra];
     zlin[4 * 31 + 2] = x[1];
     zlin[4 * 31 + 3] = x[1 + x_extra];
-    unsafe {
-        ffi::mp3d_synth_pair(
-            dst[dst_extra..].as_mut_ptr(),
-            nch as i32,
-            lins[(4 * 15 + 1)..].as_mut_ptr(),
-        );
-        ffi::mp3d_synth_pair(
-            dst[(32 * nch + dst_extra)..].as_mut_ptr(),
-            nch as i32,
-            lins[(4 * 15 + 65)..].as_mut_ptr(),
-        );
-        ffi::mp3d_synth_pair(dst.as_mut_ptr(), nch as i32, lins[(4 * 15)..].as_mut_ptr());
-        ffi::mp3d_synth_pair(
-            dst[(32 * nch)..].as_mut_ptr(),
-            nch as i32,
-            lins[(4 * 15 + 64)..].as_mut_ptr(),
-        );
-    }
+    synth_pair(&mut dst[dst_extra..], nch, &lins[(4 * 15 + 1)..]);
+    synth_pair(
+        &mut dst[(32 * nch + dst_extra)..],
+        nch,
+        &lins[(4 * 15 + 65)..],
+    );
+    synth_pair(dst, nch, &lins[(4 * 15)..]);
+    synth_pair(&mut dst[(32 * nch)..], nch, &lins[(4 * 15 + 64)..]);
 
     #[inline]
     fn fun1(k: usize, i: usize, lins: &[f32], gwin: &[f32], a: &mut [f32], b: &mut [f32]) {
@@ -359,4 +349,26 @@ fn scale_pcm(sample: f32) -> i16 {
         let s = (sample + 0.5) as i16;
         s - (s < 0) as i16
     }
+}
+
+fn synth_pair(pcm: &mut [i16], nch: usize, z: &[f32]) {
+    let mut a = (z[14 * 64] - z[0]) * 29.0;
+    a += (z[64] + z[13 * 64]) * 213.0;
+    a += (z[12 * 64] - z[2 * 64]) * 459.0;
+    a += (z[3 * 64] + z[11 * 64]) * 2037.0;
+    a += (z[10 * 64] - z[4 * 64]) * 5153.0;
+    a += (z[5 * 64] + z[9 * 64]) * 6574.0;
+    a += (z[8 * 64] - z[6 * 64]) * 37489.0;
+    a += z[7 * 64] * 75038.0;
+    pcm[0] = scale_pcm(a);
+    let z = &z[2..];
+    a = z[14 * 64] * 104.0;
+    a += z[12 * 64] * 1567.0;
+    a += z[10 * 64] * 9727.0;
+    a += z[8 * 64] * 64019.0;
+    a += z[6 * 64] * -9975.0;
+    a += z[4 * 64] * -45.0;
+    a += z[2 * 64] * 146.0;
+    a += z[0] * -5.0;
+    pcm[16 * nch] = scale_pcm(a);
 }
