@@ -338,15 +338,25 @@ fn synth(x: &mut [f32], dst: &mut [i16], nch: usize, lins: &mut [f32]) {
         fun1(6, i, lins, gwin, &mut a, &mut b);
         fun2(7, i, lins, gwin, &mut a, &mut b);
 
-        unsafe {
-            dst[(15 - i) * nch + dst_extra] = ffi::mp3d_scale_pcm(a[1]);
-            dst[(17 + i) * nch + dst_extra] = ffi::mp3d_scale_pcm(b[1]);
-            dst[(15 - i) * nch] = ffi::mp3d_scale_pcm(a[0]);
-            dst[(17 + i) * nch] = ffi::mp3d_scale_pcm(b[0]);
-            dst[(47 - i) * nch + dst_extra] = ffi::mp3d_scale_pcm(a[3]);
-            dst[(49 + i) * nch + dst_extra] = ffi::mp3d_scale_pcm(b[3]);
-            dst[(47 - i) * nch] = ffi::mp3d_scale_pcm(a[2]);
-            dst[(49 + i) * nch] = ffi::mp3d_scale_pcm(b[2]);
-        }
+        dst[(15 - i) * nch + dst_extra] = scale_pcm(a[1]);
+        dst[(17 + i) * nch + dst_extra] = scale_pcm(b[1]);
+        dst[(15 - i) * nch] = scale_pcm(a[0]);
+        dst[(17 + i) * nch] = scale_pcm(b[0]);
+        dst[(47 - i) * nch + dst_extra] = scale_pcm(a[3]);
+        dst[(49 + i) * nch + dst_extra] = scale_pcm(b[3]);
+        dst[(47 - i) * nch] = scale_pcm(a[2]);
+        dst[(49 + i) * nch] = scale_pcm(b[2]);
+    }
+}
+
+fn scale_pcm(sample: f32) -> i16 {
+    if sample >= 32766.5 {
+        32767
+    } else if sample <= -32767.5 {
+        -32768
+    } else {
+        // round sample away for zero, to be compliant
+        let s = (sample + 0.5) as i16;
+        s - (s < 0) as i16
     }
 }
