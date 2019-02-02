@@ -26,6 +26,8 @@ const MAX_BITRESERVOIR_BYTES: usize = 511;
 const BITS_DEQUANTIZER_OUT: i32 = -1;
 const MAX_SCF: i32 = 255 + BITS_DEQUANTIZER_OUT * 4 - 210;
 const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
+const MODE_MONO: u8 = 3;
+const MODE_JOINT_STEREO: u8 = 1;
 
 pub fn decode_frame(
     decoder: &mut Decoder,

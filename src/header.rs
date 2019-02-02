@@ -44,6 +44,16 @@ pub fn get_my_sample_rate(hdr: &[u8]) -> u8 {
 }
 
 #[inline]
+pub fn get_stereo_mode(hdr: &[u8]) -> u8 {
+    hdr[3] >> 6 & 3
+}
+
+#[inline]
+pub fn get_stereo_mode_ext(hdr: &[u8]) -> u8 {
+    hdr[3] >> 4 & 3
+}
+
+#[inline]
 pub fn test_mpeg1(hdr: &[u8]) -> bool {
     hdr[1] & 0x8 != 0
 }
