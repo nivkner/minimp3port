@@ -46,18 +46,13 @@ pub fn read_scale_info(hdr: &[u8], bs: &mut BitStream<'_>, mut sci: &mut ffi::L1
             6
         }
     }
-    unsafe {
-        let mut bs_copy = bs.bs_copy();
-        ffi::L12_read_scalefactors(
-            &mut bs_copy as *mut _,
-            sci.bitalloc.as_mut_ptr(),
-            sci.scfcod.as_mut_ptr(),
-            i32::from(sci.total_bands) * 2,
-            sci.scf.as_mut_ptr(),
-        );
-        bs.position = bs_copy.pos as _;
-        bs.limit = bs_copy.limit as _;
-    }
+    read_scalefactors(
+        bs,
+        &sci.bitalloc,
+        &sci.scfcod,
+        sci.total_bands as usize * 2,
+        &mut sci.scf,
+    );
 
     for i in sci.stereo_bands..sci.total_bands {
         sci.bitalloc[2 * i as usize + 1] = 0;
@@ -155,4 +150,51 @@ fn subband_alloc_table(
     sci.total_bands = nbands;
     sci.stereo_bands = cmp::min(stereo_bands, nbands);
     alloc
+}
+
+fn read_scalefactors(
+    bs: &mut BitStream<'_>,
+    pba: &[u8],
+    scfcod: &[u8],
+    bands: usize,
+    scf: &mut [f32],
+) {
+    #[rustfmt::skip]
+    let g_deq_l12: [f32; 18 * 3] = [
+        9.536_743e-7 / 3.0, 7.569_318e-7 / 3.0, 6.007_772e-7 / 3.0,
+        9.536_743e-7 / 7.0, 7.569_318e-7 / 7.0, 6.007_772e-7 / 7.0,
+        9.536_743e-7 / 15.0, 7.569_318e-7 / 15.0, 6.007_772e-7 / 15.0,
+        9.536_743e-7 / 31.0, 7.569_318e-7 / 31.0, 6.007_772e-7 / 31.0,
+        9.536_743e-7 / 63.0, 7.569_318e-7 / 63.0, 6.007_772e-7 / 63.0,
+        9.536_743e-7 / 127.0, 7.569_318e-7 / 127.0, 6.007_772e-7 / 127.0,
+        9.536_743e-7 / 255.0, 7.569_318e-7 / 255.0, 6.007_772e-7 / 255.0,
+        9.536_743e-7 / 511.0, 7.569_318e-7 / 511.0, 6.007_772e-7 / 511.0,
+        9.536_743e-7 / 1023.0, 7.569_318e-7 / 1023.0, 6.007_772e-7 / 1023.0,
+        9.536_743e-7 / 2047.0, 7.569_318e-7 / 2047.0, 6.007_772e-7 / 2047.0,
+        9.536_743e-7 / 4095.0, 7.569_318e-7 / 4095.0, 6.007_772e-7 / 4095.0,
+        9.536_743e-7 / 8191.0, 7.569_318e-7 / 8191.0, 6.007_772e-7 / 8191.0,
+        9.536_743e-7 / 16383.0, 7.569_318e-7 / 16383.0, 6.007_772e-7 / 16383.0,
+        9.536_743e-7 / 32767.0, 7.569_318e-7 / 32767.0, 6.007_772e-7 / 32767.0,
+        9.536_743e-7 / 65535.0, 7.569_318e-7 / 65535.0, 6.007_772e-7 / 65535.0,
+        9.536_743e-7 / 3.0, 7.569_318e-7 / 3.0, 6.007_772e-7 / 3.0,
+        9.536_743e-7 / 5.0, 7.569_318e-7 / 5.0, 6.007_772e-7 / 5.0,
+        9.536_743e-7 / 9.0, 7.569_318e-7 / 9.0, 6.007_772e-7 / 9.0,
+    ];
+    for ((&ba, scf), scfcod) in pba
+        .iter()
+        .zip(scf.chunks_exact_mut(3))
+        .zip(scfcod.iter())
+        .take(bands)
+    {
+        let mask = if 0 != ba { 4 + (19 >> scfcod & 3) } else { 0 };
+
+        let mut s = 0.0;
+        for (m, scf) in scf.iter_mut().enumerate().map(|(i, scf)| (4 >> i, scf)) {
+            if 0 != mask & m {
+                let b = bs.get_bits(6) as u8;
+                s = g_deq_l12[(ba * 3 - 6 + b % 3) as usize] * (1 << 21 >> (b / 3)) as f32
+            }
+            *scf = s;
+        }
+    }
 }
