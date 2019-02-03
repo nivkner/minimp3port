@@ -9,7 +9,8 @@ mod l12;
 mod l3;
 
 use crate::bits::BitStream;
-pub use crate::decoder::{Decoder, FrameInfo, Scratch};
+use crate::decoder::Scratch;
+pub use crate::decoder::{Decoder, FrameInfo};
 
 fn decoder_init(dec: &mut Decoder) {
     dec.header[0] = 0
@@ -126,18 +127,14 @@ pub fn decode_frame(
             scfcod: [0; 64],
         };
         l12::read_scale_info(hdr, &mut bs_frame, &mut sci);
-        scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
         let mut i = 0;
-        let mut bs_copy = unsafe { bs_frame.bs_copy() };
         for igr in 0..3 {
-            unsafe {
-                i += ffi::L12_dequantize_granule(
-                    scratch.grbuf[(i as _)..].as_mut_ptr(),
-                    &mut bs_copy,
-                    &mut sci,
-                    info.layer | 1,
-                );
-            }
+            i += l12::dequantize_granule(
+                &mut scratch.grbuf[i..],
+                &mut bs_frame,
+                &mut sci,
+                info.layer as usize | 1,
+            );
             if i == 12 {
                 i = 0;
                 unsafe {
@@ -158,12 +155,11 @@ pub fn decode_frame(
                 }
                 pcm_pos += 384 * info.channels as usize;
             }
-            if bs_copy.pos > bs_copy.limit {
+            if bs_frame.position > bs_frame.limit {
                 decoder_init(decoder);
                 return 0;
             }
         }
-        bs_frame.position = bs_copy.pos as _;
     }
     header::frame_samples(&decoder.header)
 }

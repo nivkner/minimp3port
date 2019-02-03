@@ -1,5 +1,3 @@
-use super::ffi;
-
 pub struct BitStream<'a> {
     pub data: &'a [u8],
     // this is not the same as the length of the slice
@@ -20,16 +18,6 @@ impl<'a> BitStream<'a> {
 
     pub fn new(data: &'a [u8]) -> Self {
         BitStream::new_with_pos(data, 0)
-    }
-
-    // use when a bs_t is needed to preserve the original lifetime
-    // the caller must ensure that the bs_t does not outlive self
-    pub unsafe fn bs_copy(&self) -> ffi::bs_t {
-        ffi::bs_t {
-            buf: self.data.as_ptr(),
-            pos: self.position as _,
-            limit: self.limit as _,
-        }
     }
 
     pub fn get_bits(&mut self, amount: u32) -> u32 {

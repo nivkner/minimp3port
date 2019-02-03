@@ -198,3 +198,41 @@ fn read_scalefactors(
         }
     }
 }
+
+pub fn dequantize_granule(
+    grbuf: &mut [f32],
+    bs: &mut BitStream<'_>,
+    sci: &mut ffi::L12_scale_info,
+    group_size: usize,
+) -> usize {
+    let mut choff: i32 = 576;
+    for j in 0..4 {
+        let dst = &mut grbuf[(group_size * j)..];
+        // since choff alternates between 576 and -558
+        // use an always growing offset to slice dst
+        let mut offset = 0;
+        for &ba in sci.bitalloc.iter().take(2 * sci.total_bands as usize) {
+            let dst = &mut dst[(offset as usize)..];
+            if ba != 0 {
+                if ba < 17 {
+                    let half: i32 = (1 << (ba - 1)) - 1;
+                    for dst in dst.iter_mut().take(group_size) {
+                        *dst = (bs.get_bits(ba.into()) as i32 - half) as f32;
+                    }
+                } else {
+                    /* 3, 5, 9 */
+                    let mod_0: i32 = (2 << (ba - 17)) + 1;
+                    /* 5, 7, 10 */
+                    let mut code: i32 = bs.get_bits((mod_0 + 2 - (mod_0 >> 3)) as u32) as i32;
+                    for dst in dst.iter_mut().take(group_size) {
+                        *dst = ((code % mod_0) - (mod_0 / 2)) as f32;
+                        code /= mod_0;
+                    }
+                }
+            }
+            offset += choff;
+            choff = 18 - choff;
+        }
+    }
+    group_size * 4
+}
