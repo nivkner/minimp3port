@@ -4,17 +4,15 @@
 mod bits;
 mod decoder;
 mod header;
-mod l12;
-mod l3;
+mod layer3;
+mod layers12;
 
 use crate::bits::BitStream;
 use crate::decoder::Scratch;
-pub use crate::decoder::{Decoder, FrameInfo};
-use crate::l12::ScaleInfo;
+use crate::layer3::GranuleInfo;
+use crate::layers12::ScaleInfo;
 
-fn decoder_init(dec: &mut Decoder) {
-    dec.header[0] = 0
-}
+pub use crate::decoder::{Decoder, FrameInfo};
 
 pub const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
 const HDR_SIZE: usize = 4;
@@ -81,8 +79,8 @@ pub fn decode_frame(
 
     let mut scratch = Scratch::default();
     if info.layer == 3 {
-        let mut gr_info = [l3::GrInfo::default(); 4];
-        let main_data_begin = l3::read_side_info(&mut bs_frame, &mut gr_info, hdr);
+        let mut gr_info = [GranuleInfo::default(); 4];
+        let main_data_begin = layer3::read_side_info(&mut bs_frame, &mut gr_info, hdr);
         if main_data_begin < 0 || bs_frame.position > bs_frame.limit {
             decoder_init(decoder);
             return 0;
@@ -90,13 +88,13 @@ pub fn decode_frame(
 
         let mut main_data = [0; 2815];
         let (mut scratch_bs, success) =
-            l3::restore_reservoir(decoder, &mut bs_frame, &mut main_data, main_data_begin as _);
+            layer3::restore_reservoir(decoder, &mut bs_frame, &mut main_data, main_data_begin as _);
 
         if success {
             let count = if header::test_mpeg1(hdr) { 2 } else { 1 };
             for igr in 0..count {
                 scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
-                l3::decode(
+                layer3::decode(
                     decoder,
                     &mut scratch,
                     &mut scratch_bs,
@@ -113,9 +111,9 @@ pub fn decode_frame(
                 );
                 pcm_pos += 576 * info.channels as usize;
             }
-            l3::save_reservoir(decoder, &mut scratch_bs);
+            layer3::save_reservoir(decoder, &mut scratch_bs);
         } else {
-            l3::save_reservoir(decoder, &mut scratch_bs);
+            layer3::save_reservoir(decoder, &mut scratch_bs);
             return 0;
         }
     } else {
@@ -126,10 +124,10 @@ pub fn decode_frame(
             bitalloc: [0; 64],
             scfcod: [0; 64],
         };
-        l12::read_scale_info(hdr, &mut bs_frame, &mut sci);
+        layers12::read_scale_info(hdr, &mut bs_frame, &mut sci);
         let mut i = 0;
         for igr in 0..3 {
-            i += l12::dequantize_granule(
+            i += layers12::dequantize_granule(
                 &mut scratch.grbuf[i..],
                 &mut bs_frame,
                 &mut sci,
@@ -137,7 +135,7 @@ pub fn decode_frame(
             );
             if i == 12 {
                 i = 0;
-                l12::apply_scf_384(&mut sci, igr, &mut scratch.grbuf);
+                layers12::apply_scf_384(&mut sci, igr, &mut scratch.grbuf);
                 decoder::synth_granule(
                     &mut decoder.qmf_state,
                     &mut scratch.grbuf,
@@ -156,4 +154,8 @@ pub fn decode_frame(
         }
     }
     header::frame_samples(&decoder.header)
+}
+
+fn decoder_init(dec: &mut Decoder) {
+    dec.header[0] = 0
 }

@@ -6,7 +6,7 @@ use crate::header;
 use crate::{BITS_DEQUANTIZER_OUT, MAX_BITRESERVOIR_BYTES, MAX_SCFI, SHORT_BLOCK_TYPE};
 
 #[derive(Copy, Clone, Default)]
-pub struct GrInfo {
+pub struct GranuleInfo {
     // when the table is None, it corresponds to n_long_sfb == 0,
     // and n_short_sfb == 0
     pub sfb_table: Option<SFBTable>,
@@ -97,7 +97,7 @@ static G_POW43: [f32; 145] = [
     625.0, 631.675_54, 638.368_8, 645.079_6,
 ];
 
-pub fn read_side_info(bs: &mut BitStream<'_>, gr: &mut [GrInfo], hdr: &[u8]) -> i32 {
+pub fn read_side_info(bs: &mut BitStream<'_>, gr: &mut [GranuleInfo], hdr: &[u8]) -> i32 {
     let mut sr_idx = header::get_my_sample_rate(hdr);
     if sr_idx != 0 {
         sr_idx -= 1
@@ -230,7 +230,7 @@ pub fn decode_scalefactors(
     hdr: &[u8],
     ist_pos: &mut [u8],
     bs: &mut BitStream<'_>,
-    gr: &GrInfo,
+    gr: &GranuleInfo,
     scf: &mut [f32],
     ch: i32,
 ) {
@@ -359,7 +359,7 @@ pub fn decode(
     decoder: &mut Decoder,
     scratch: &mut Scratch,
     bs: &mut BitStream<'_>,
-    native_gr_info: &[GrInfo],
+    native_gr_info: &[GranuleInfo],
     channel_num: usize,
 ) {
     for (channel, info) in native_gr_info.iter().enumerate().take(channel_num) {
@@ -701,7 +701,7 @@ fn midside_stereo(data: &mut [f32], n: usize) {
 fn intensity_stereo(
     left: &mut [f32],
     ist_pos: &mut [u8],
-    gr_info: &GrInfo,
+    gr_info: &GranuleInfo,
     scalefac_next: i32,
     hdr: &[u8],
 ) {
@@ -812,7 +812,7 @@ fn intensity_stereo_band(left: &mut [f32], n: usize, kl: f32, kr: f32) {
 pub fn huffman(
     dst: &mut [f32],
     bs: &mut BitStream<'_>,
-    gr_info: &GrInfo,
+    gr_info: &GranuleInfo,
     scf: &[f32],
     layer3gr_limit: i32,
 ) {
