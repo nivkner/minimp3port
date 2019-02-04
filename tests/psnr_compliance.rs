@@ -1,6 +1,3 @@
-#![allow(bad_style)]
-#![allow(clippy::all)]
-
 extern crate minimp3port;
 
 use byteorder::ByteOrder;
@@ -33,39 +30,39 @@ macro_rules! test_all {
 }
 
 test_all![
-    ILL2_center2: name="ILL2_center2" samples=2304 rate=48000,
-    ILL2_dual: name="ILL2_dual" samples=2304 rate=48000,
-    ILL2_dynx22: name="ILL2_dynx22" samples=2304 rate=48000,
-    ILL2_dynx31: name="ILL2_dynx31" samples=2304 rate=48000,
-    ILL2_dynx32: name="ILL2_dynx32" samples=2304 rate=48000,
-    ILL2_ext_switching: name="ILL2_ext_switching" samples=20736 rate=48000,
-    ILL2_layer1: name="ILL2_layer1" samples=2304 rate=44100,
-    ILL2_layer3: name="ILL2_layer3" samples=23040 rate=48000,
-    ILL2_mono: name="ILL2_mono" samples=1152 rate=48000,
-    ILL2_multilingual: name="ILL2_multilingual" samples=2304 rate=48000,
-    ILL2_overalloc1: name="ILL2_overalloc1" samples=2304 rate=48000,
-    ILL2_overalloc2: name="ILL2_overalloc2" samples=0 rate=0,
-    ILL2_prediction: name="ILL2_prediction" samples=2304 rate=48000,
-    ILL2_samples: name="ILL2_samples" samples=2304 rate=48000,
-    ILL2_scf63: name="ILL2_scf63" samples=2304 rate=48000,
-    ILL2_tca21: name="ILL2_tca21" samples=2304 rate=48000,
-    ILL2_tca30: name="ILL2_tca30" samples=2304 rate=48000,
-    ILL2_tca30_PC: name="ILL2_tca30_PC" samples=2304 rate=48000,
-    ILL2_tca31_PC: name="ILL2_tca31_PC" samples=2304 rate=48000,
-    ILL2_tca31_mtx0: name="ILL2_tca31_mtx0" samples=2304 rate=48000,
-    ILL2_tca31_mtx2: name="ILL2_tca31_mtx2" samples=2304 rate=48000,
-    ILL2_tca32_PC: name="ILL2_tca32_PC" samples=2304 rate=48000,
-    ILL2_wrongcrc: name="ILL2_wrongcrc" samples=2304 rate=48000,
-    ILL4_ext_id1: name="ILL4_ext_id1" samples=2304 rate=48000,
-    ILL4_sync: name="ILL4_sync" samples=2304 rate=48000,
-    ILL4_wrong_length1: name="ILL4_wrong_length1" samples=2304 rate=48000,
-    ILL4_wrong_length2: name="ILL4_wrong_length2" samples=2304 rate=48000,
-    ILL4_wrongcrc: name="ILL4_wrongcrc" samples=2304 rate=48000,
-    M2L3_bitrate_16_all: name="M2L3_bitrate_16_all" samples=274176 rate=16000,
-    M2L3_bitrate_22_all: name="M2L3_bitrate_22_all" samples=274176 rate=22050,
-    M2L3_bitrate_24_all: name="M2L3_bitrate_24_all" samples=274176 rate=24000,
-    M2L3_compl24: name="M2L3_compl24" samples=122112 rate=24000,
-    M2L3_noise: name="M2L3_noise" samples=444672 rate=22050,
+    ill2_center2: name="ILL2_center2" samples=2304 rate=48000,
+    ill2_dual: name="ILL2_dual" samples=2304 rate=48000,
+    ill2_dynx22: name="ILL2_dynx22" samples=2304 rate=48000,
+    ill2_dynx31: name="ILL2_dynx31" samples=2304 rate=48000,
+    ill2_dynx32: name="ILL2_dynx32" samples=2304 rate=48000,
+    ill2_ext_switching: name="ILL2_ext_switching" samples=20736 rate=48000,
+    ill2_layer1: name="ILL2_layer1" samples=2304 rate=44100,
+    ill2_layer3: name="ILL2_layer3" samples=23040 rate=48000,
+    ill2_mono: name="ILL2_mono" samples=1152 rate=48000,
+    ill2_multilingual: name="ILL2_multilingual" samples=2304 rate=48000,
+    ill2_overalloc1: name="ILL2_overalloc1" samples=2304 rate=48000,
+    ill2_overalloc2: name="ILL2_overalloc2" samples=0 rate=0,
+    ill2_prediction: name="ILL2_prediction" samples=2304 rate=48000,
+    ill2_samples: name="ILL2_samples" samples=2304 rate=48000,
+    ill2_scf63: name="ILL2_scf63" samples=2304 rate=48000,
+    ill2_tca21: name="ILL2_tca21" samples=2304 rate=48000,
+    ill2_tca30: name="ILL2_tca30" samples=2304 rate=48000,
+    ill2_tca30_pc: name="ILL2_tca30_PC" samples=2304 rate=48000,
+    ill2_tca31_pc: name="ILL2_tca31_PC" samples=2304 rate=48000,
+    ill2_tca31_mtx0: name="ILL2_tca31_mtx0" samples=2304 rate=48000,
+    ill2_tca31_mtx2: name="ILL2_tca31_mtx2" samples=2304 rate=48000,
+    ill2_tca32_pc: name="ILL2_tca32_PC" samples=2304 rate=48000,
+    ill2_wrongcrc: name="ILL2_wrongcrc" samples=2304 rate=48000,
+    ill4_ext_id1: name="ILL4_ext_id1" samples=2304 rate=48000,
+    ill4_sync: name="ILL4_sync" samples=2304 rate=48000,
+    ill4_wrong_length1: name="ILL4_wrong_length1" samples=2304 rate=48000,
+    ill4_wrong_length2: name="ILL4_wrong_length2" samples=2304 rate=48000,
+    ill4_wrongcrc: name="ILL4_wrongcrc" samples=2304 rate=48000,
+    m2l3_bitrate_16_all: name="M2L3_bitrate_16_all" samples=274176 rate=16000,
+    m2l3_bitrate_22_all: name="M2L3_bitrate_22_all" samples=274176 rate=22050,
+    m2l3_bitrate_24_all: name="M2L3_bitrate_24_all" samples=274176 rate=24000,
+    m2l3_compl24: name="M2L3_compl24" samples=122112 rate=24000,
+    m2l3_noise: name="M2L3_noise" samples=444672 rate=22050,
     l1_fl1: name="l1-fl1" samples=37632 rate=32000,
     l1_fl2: name="l1-fl2" samples=37632 rate=44100,
     l1_fl3: name="l1-fl3" samples=37632 rate=48000,
@@ -106,7 +103,7 @@ test_all![
     l3_test46: name="l3-test46" samples=288000 rate=22050
 ];
 
-struct mp3dec_file_info_t {
+struct FileInfo {
     samples: usize,
     channels: i32,
     hz: i32,
@@ -114,11 +111,11 @@ struct mp3dec_file_info_t {
     avg_bitrate_kbps: i32,
 }
 
-/* decode whole buffer block */
-fn load_buffer(
+// calculate the MSE between the decoded buffer and the reference buffer
+fn compare_buffers(
     dec: &mut Decoder,
     buf: &[u8],
-    info: &mut mp3dec_file_info_t,
+    info: &mut FileInfo,
     ref_buffer: &[i16],
 ) -> (f64, i32) {
     let mut pcm: [i16; 2304] = [0; 2304];
@@ -129,12 +126,11 @@ fn load_buffer(
         layer: 0,
         bitrate_kbps: 0,
     };
-    let mut MSE = 0.0;
+    let mut mse = 0.0;
     let mut maxdiff = 0;
-    /* skip id3v2 */
-    let id3v2size = mp3dec_skip_id3v2(buf);
+    let id3v2size = skip_id3v2(buf);
     if id3v2size > buf.len() {
-        return (MSE, maxdiff);
+        return (mse, maxdiff);
     }
     let mut buf_slice = &buf[(id3v2size as usize)..];
     let mut samples: i32;
@@ -146,21 +142,21 @@ fn load_buffer(
         }
     }
     if 0 == samples {
-        return (MSE, maxdiff);
+        return (mse, maxdiff);
     }
     samples *= frame_info.channels;
     info.samples = samples as usize;
-    /* save info */
+    // save info
     info.channels = frame_info.channels;
     info.hz = frame_info.hz;
     info.layer = frame_info.layer;
     let mut avg_bitrate_kbps: usize = frame_info.bitrate_kbps as usize;
     let mut frames: usize = 1i32 as usize;
-    /* decode rest frames */
+    // decode rest frames
     let mut total = samples as usize;
     if !ref_buffer.is_empty() {
-        let (m, diff) = mse(total, &pcm[..(samples as usize)], ref_buffer);
-        MSE += m;
+        let (m, diff) = get_mse(total, &pcm[..(samples as usize)], ref_buffer);
+        mse += m;
         if diff > maxdiff {
             maxdiff = diff;
         }
@@ -177,8 +173,8 @@ fn load_buffer(
         };
 
         if !ref_buffer.is_empty() {
-            let (m, diff) = mse(all_samples, &pcm[..(all_samples)], ref_slice);
-            MSE += m;
+            let (m, diff) = get_mse(all_samples, &pcm[..(all_samples)], ref_slice);
+            mse += m;
             if diff > maxdiff {
                 maxdiff = diff;
             }
@@ -189,7 +185,7 @@ fn load_buffer(
                 break;
             }
             if 0 != info.channels && info.channels != frame_info.channels {
-                /* mark file with mono-stereo transition */
+                // mark file with mono-stereo transition
                 info.channels = 0i32
             }
             info.samples += (samples * frame_info.channels) as usize;
@@ -200,24 +196,24 @@ fn load_buffer(
             break;
         }
     }
-    info.avg_bitrate_kbps = avg_bitrate_kbps.wrapping_div(frames) as i32;
-    (MSE, maxdiff)
+    info.avg_bitrate_kbps = (avg_bitrate_kbps / frames) as i32;
+    (mse, maxdiff)
 }
 
-fn mp3dec_skip_id3v2(buf: &[u8]) -> usize {
+fn skip_id3v2(buf: &[u8]) -> usize {
     if buf.len() > 10 && &buf[..3] == b"ID3" {
-        return ((buf[6] as usize & 0x7f) << 21
+        ((buf[6] as usize & 0x7f) << 21
             | (buf[7] as usize & 0x7f) << 14
             | (buf[8] as usize & 0x7f) << 7
             | buf[9] as usize & 0x7f)
-            + 10;
+            + 10
     } else {
-        return 0;
-    };
+        0
+    }
 }
 
-fn mse(samples: usize, frame_buf: &[i16], buf_ref: &[i16]) -> (f64, i32) {
-    let mut MSE = 0.0;
+fn get_mse(samples: usize, frame_buf: &[i16], buf_ref: &[i16]) -> (f64, i32) {
+    let mut mse = 0.0;
     let mut maxdiff = 0;
     if 0 != samples {
         let max_samples = std::cmp::min(buf_ref.len() / 2, samples as usize);
@@ -228,10 +224,10 @@ fn mse(samples: usize, frame_buf: &[i16], buf_ref: &[i16]) -> (f64, i32) {
             if diff as i32 > maxdiff {
                 maxdiff = diff.into()
             }
-            MSE += f64::from(diff.pow(2));
+            mse += f64::from(diff.pow(2));
         }
     }
-    (MSE, maxdiff)
+    (mse, maxdiff)
 }
 
 fn decode(input_buffer: &[u8], buf: &[u8], expected_samples: usize, expected_sample_rate: usize) {
@@ -243,7 +239,7 @@ fn decode(input_buffer: &[u8], buf: &[u8], expected_samples: usize, expected_sam
         header: [0; 4],
         reserv_buf: [0; 511],
     };
-    let mut info = mp3dec_file_info_t {
+    let mut info = FileInfo {
         samples: 0,
         channels: 0,
         hz: 0,
@@ -251,18 +247,21 @@ fn decode(input_buffer: &[u8], buf: &[u8], expected_samples: usize, expected_sam
         avg_bitrate_kbps: 0,
     };
     let mut vec_ref: Vec<i16> = Vec::with_capacity(buf.len() / 2);
+    // this is safe because the capacity is the right size
+    // the uninitialized data is immediately overwritten
+    // and i16 isn't read when dropped
     unsafe { vec_ref.set_len(buf.len() / 2) };
     byteorder::LittleEndian::read_i16_into(buf, &mut vec_ref);
-    let (mut MSE, maxdiff) = load_buffer(&mut mp3d, input_buffer, &mut info, &vec_ref);
-    MSE /= if 0 != info.samples {
+    let (mut mse, maxdiff) = compare_buffers(&mut mp3d, input_buffer, &mut info, &vec_ref);
+    mse /= if 0 != info.samples {
         info.samples as f64
     } else {
         1.0
     };
-    let psnr = if MSE == 0.0 {
+    let psnr = if mse == 0.0 {
         99.0
     } else {
-        10.0 * (0x7fffu32.pow(2) as f64 / MSE).log10()
+        10.0 * (0x7fffu32.pow(2) as f64 / mse).log10()
     };
     assert_eq!(info.hz as usize, expected_sample_rate, "sample rate");
     assert_eq!(info.samples, expected_samples, "number of samples");
