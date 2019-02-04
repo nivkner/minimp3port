@@ -1,10 +1,26 @@
 use crate::bits::BitStream;
-use crate::{ffi, header};
+use crate::header;
 use crate::{MODE_JOINT_STEREO, MODE_MONO};
+
+#[derive(Copy, Clone)]
+pub struct ScaleInfo {
+    pub scf: [f32; 192],
+    pub total_bands: u8,
+    pub stereo_bands: u8,
+    pub bitalloc: [u8; 64],
+    pub scfcod: [u8; 64],
+}
+
+#[derive(Copy, Clone)]
+pub struct SubbandAlloc {
+    pub tab_offset: u8,
+    pub code_tab_width: u8,
+    pub band_count: u8,
+}
 
 use core::cmp;
 
-pub fn read_scale_info(hdr: &[u8], bs: &mut BitStream<'_>, mut sci: &mut ffi::L12_scale_info) {
+pub fn read_scale_info(hdr: &[u8], bs: &mut BitStream<'_>, mut sci: &mut ScaleInfo) {
     let g_bitalloc_code_tab: [u8; 92] = [
         0, 17, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 0, 17, 18, 3, 19, 4, 5, 6, 7, 8, 9,
         10, 11, 12, 13, 16, 0, 17, 18, 3, 19, 4, 5, 16, 0, 17, 18, 16, 0, 17, 18, 19, 4, 5, 6, 7,
@@ -59,61 +75,58 @@ pub fn read_scale_info(hdr: &[u8], bs: &mut BitStream<'_>, mut sci: &mut ffi::L1
     }
 }
 
-fn subband_alloc_table(
-    hdr: &[u8],
-    sci: &mut ffi::L12_scale_info,
-) -> &'static [ffi::L12_subband_alloc_t] {
-    static G_ALLOC_L1: &[ffi::L12_subband_alloc_t] = &[ffi::L12_subband_alloc_t {
+fn subband_alloc_table(hdr: &[u8], sci: &mut ScaleInfo) -> &'static [SubbandAlloc] {
+    static G_ALLOC_L1: &[SubbandAlloc] = &[SubbandAlloc {
         tab_offset: 76,
         code_tab_width: 4,
         band_count: 32,
     }];
-    static G_ALLOC_L2M2: &[ffi::L12_subband_alloc_t] = &[
-        ffi::L12_subband_alloc_t {
+    static G_ALLOC_L2M2: &[SubbandAlloc] = &[
+        SubbandAlloc {
             tab_offset: 60,
             code_tab_width: 4,
             band_count: 4,
         },
-        ffi::L12_subband_alloc_t {
+        SubbandAlloc {
             tab_offset: 44,
             code_tab_width: 3,
             band_count: 7,
         },
-        ffi::L12_subband_alloc_t {
+        SubbandAlloc {
             tab_offset: 44,
             code_tab_width: 2,
             band_count: 19,
         },
     ];
-    static G_ALLOC_L2M1_LOWRATE: &[ffi::L12_subband_alloc_t] = &[
-        ffi::L12_subband_alloc_t {
+    static G_ALLOC_L2M1_LOWRATE: &[SubbandAlloc] = &[
+        SubbandAlloc {
             tab_offset: 44,
             code_tab_width: 4,
             band_count: 2,
         },
-        ffi::L12_subband_alloc_t {
+        SubbandAlloc {
             tab_offset: 44,
             code_tab_width: 3,
             band_count: 10,
         },
     ];
-    static G_ALLOC_L2M1: &[ffi::L12_subband_alloc_t] = &[
-        ffi::L12_subband_alloc_t {
+    static G_ALLOC_L2M1: &[SubbandAlloc] = &[
+        SubbandAlloc {
             tab_offset: 0,
             code_tab_width: 4,
             band_count: 3,
         },
-        ffi::L12_subband_alloc_t {
+        SubbandAlloc {
             tab_offset: 16,
             code_tab_width: 4,
             band_count: 8,
         },
-        ffi::L12_subband_alloc_t {
+        SubbandAlloc {
             tab_offset: 32,
             code_tab_width: 3,
             band_count: 12,
         },
-        ffi::L12_subband_alloc_t {
+        SubbandAlloc {
             tab_offset: 40,
             code_tab_width: 2,
             band_count: 7,
@@ -202,7 +215,7 @@ fn read_scalefactors(
 pub fn dequantize_granule(
     grbuf: &mut [f32],
     bs: &mut BitStream<'_>,
-    sci: &mut ffi::L12_scale_info,
+    sci: &mut ScaleInfo,
     group_size: usize,
 ) -> usize {
     let mut choff: i32 = 576;
@@ -237,7 +250,7 @@ pub fn dequantize_granule(
     group_size * 4
 }
 
-pub fn apply_scf_384(sci: &mut ffi::L12_scale_info, scf_index: usize, dst: &mut [f32]) {
+pub fn apply_scf_384(sci: &mut ScaleInfo, scf_index: usize, dst: &mut [f32]) {
     let (dst_left, dst_right) = dst.split_at_mut(576);
     let stereo18 = sci.stereo_bands as usize * 18;
     let total18 = (sci.total_bands as usize) * 18;

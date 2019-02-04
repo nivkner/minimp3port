@@ -3,7 +3,6 @@
 
 mod bits;
 mod decoder;
-mod ffi;
 mod header;
 mod l12;
 mod l3;
@@ -11,6 +10,7 @@ mod l3;
 use crate::bits::BitStream;
 use crate::decoder::Scratch;
 pub use crate::decoder::{Decoder, FrameInfo};
+use crate::l12::ScaleInfo;
 
 fn decoder_init(dec: &mut Decoder) {
     dec.header[0] = 0
@@ -119,7 +119,7 @@ pub fn decode_frame(
             return 0;
         }
     } else {
-        let mut sci = ffi::L12_scale_info {
+        let mut sci = ScaleInfo {
             scf: [0.0; 192],
             total_bands: 0,
             stereo_bands: 0,
