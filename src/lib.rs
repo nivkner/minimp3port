@@ -137,22 +137,16 @@ pub fn decode_frame(
             );
             if i == 12 {
                 i = 0;
-                unsafe {
-                    ffi::L12_apply_scf_384(
-                        &mut sci,
-                        sci.scf[(igr as _)..].as_mut_ptr(),
-                        scratch.grbuf.as_mut_ptr(),
-                    );
-                    decoder::synth_granule(
-                        &mut decoder.qmf_state,
-                        &mut scratch.grbuf,
-                        12,
-                        info.channels as usize,
-                        &mut pcm[pcm_pos..],
-                        &mut scratch.syn,
-                    );
-                    scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
-                }
+                l12::apply_scf_384(&mut sci, igr, &mut scratch.grbuf);
+                decoder::synth_granule(
+                    &mut decoder.qmf_state,
+                    &mut scratch.grbuf,
+                    12,
+                    info.channels as usize,
+                    &mut pcm[pcm_pos..],
+                    &mut scratch.syn,
+                );
+                scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
                 pcm_pos += 384 * info.channels as usize;
             }
             if bs_frame.position > bs_frame.limit {

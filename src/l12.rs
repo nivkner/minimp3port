@@ -236,3 +236,23 @@ pub fn dequantize_granule(
     }
     group_size * 4
 }
+
+pub fn apply_scf_384(sci: &mut ffi::L12_scale_info, scf_index: usize, dst: &mut [f32]) {
+    let (dst_left, dst_right) = dst.split_at_mut(576);
+    let stereo18 = sci.stereo_bands as usize * 18;
+    let total18 = (sci.total_bands as usize) * 18;
+    dst_right[stereo18..total18].copy_from_slice(&dst_left[stereo18..total18]);
+
+    for ((scf, dst_left), dst_right) in sci
+        .scf
+        .chunks_exact(6)
+        .zip(dst_left.chunks_exact_mut(18))
+        .zip(dst_right.chunks_exact_mut(18))
+        .take(sci.total_bands as usize)
+    {
+        for (dst_left, dst_right) in dst_left.iter_mut().zip(dst_right.iter_mut()).take(12) {
+            *dst_left *= scf[scf_index];
+            *dst_right *= scf[scf_index + 3];
+        }
+    }
+}
