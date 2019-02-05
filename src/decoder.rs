@@ -39,6 +39,19 @@ impl Default for Scratch {
     }
 }
 
+impl Default for Decoder {
+    fn default() -> Self {
+        Decoder {
+            mdct_overlap: [[0.; 288]; 2],
+            qmf_state: [0.; 960],
+            reserv: 0,
+            free_format_bytes: 0,
+            header: [0; 4],
+            reserv_buf: [0; 511],
+        }
+    }
+}
+
 pub fn find_frame(mp3: &[u8], free_format_bytes: &mut i32, ptr_frame_bytes: &mut i32) -> i32 {
     let valid_frames = mp3
         .windows(HDR_SIZE)

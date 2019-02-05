@@ -230,14 +230,7 @@ fn get_mse(samples: usize, frame_buf: &[i16], buf_ref: &[i16]) -> (f64, i32) {
 }
 
 fn decode(input_buffer: &[u8], buf: &[u8], expected_samples: usize, expected_sample_rate: usize) {
-    let mut mp3d = Decoder {
-        mdct_overlap: [[0.; 288]; 2],
-        qmf_state: [0.; 960],
-        reserv: 0,
-        free_format_bytes: 0,
-        header: [0; 4],
-        reserv_buf: [0; 511],
-    };
+    let mut mp3d = Decoder::default();
     let mut info = FileInfo {
         samples: 0,
         channels: 0,

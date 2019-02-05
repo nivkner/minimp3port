@@ -18,14 +18,7 @@ fn main() {
     file.read_to_end(&mut mp3_buffer)
         .expect("failed to read file");
 
-    let mut decoder = Decoder {
-        mdct_overlap: [[0.; 288]; 2],
-        qmf_state: [0.; 960],
-        reserv: 0,
-        free_format_bytes: 0,
-        header: [0; 4],
-        reserv_buf: [0; 511],
-    };
+    let mut decoder = Decoder::default();
     let mut pcm: [i16; 2304] = [0; 2304];
     let mut frame_info = FrameInfo {
         frame_bytes: 0,

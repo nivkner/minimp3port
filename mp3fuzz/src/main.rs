@@ -10,14 +10,7 @@ fn main() {
         layer: 0,
         bitrate_kbps: 0,
     };;
-    let mut decoder = minimp3port::Decoder {
-        mdct_overlap: [[0.; 288]; 2],
-        qmf_state: [0.; 960],
-        reserv: 0,
-        free_format_bytes: 0,
-        header: [0; 4],
-        reserv_buf: [0; 511],
-    };
+    let mut decoder = minimp3port::Decoder::default();
 
     loop {
         fuzz!(|data: &[u8]| {

@@ -47,14 +47,7 @@ pub fn decode_frame(
 
     let mut i = 0;
     if frame_size == 0 {
-        *decoder = Decoder {
-            mdct_overlap: [[0.; 288]; 2],
-            qmf_state: [0.; 960],
-            reserv: 0,
-            free_format_bytes: 0,
-            header: [0; 4],
-            reserv_buf: [0; 511],
-        };
+        *decoder = Decoder::default();
         i = decoder::find_frame(mp3, &mut decoder.free_format_bytes, &mut frame_size);
         if frame_size == 0 || i + frame_size > mp3.len() as _ {
             info.frame_bytes = i;
