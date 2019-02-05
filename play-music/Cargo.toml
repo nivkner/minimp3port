@@ -1,0 +1,11 @@
+[package]
+name = "play-music"
+version = "0.1.0"
+authors = ["Niv Kaminer <nivkner@zoho.com>"]
+edition = "2018"
+
+[dependencies]
+byteorder = "1"
+libpulse-binding = "2.0"
+libpulse-simple-binding = "2.0"
+minimp3port = { path = ".." }

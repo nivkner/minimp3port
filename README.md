@@ -14,6 +14,12 @@ cd mp3fuzz
 cargo hfuzz run mp3fuzz
 ```
 
+The example "play-music" subcrate uses pulseaudio, so to try the example make sure you have that on your system.
+Then you can do the following:
+```
+cargo run -p play-music -- path/to/file.mp3
+```
+
 The project supports `no_std` and uses no runtime dependencies.
 
 **Warning**
