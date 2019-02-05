@@ -20,13 +20,7 @@ fn main() {
 
     let mut decoder = Decoder::default();
     let mut pcm: [i16; 2304] = [0; 2304];
-    let mut frame_info = FrameInfo {
-        frame_bytes: 0,
-        channels: 0,
-        hz: 0,
-        layer: 0,
-        bitrate_kbps: 0,
-    };
+    let mut frame_info = FrameInfo::default();
 
     let id3v2size = skip_id3v2(&mp3_buffer);
     if id3v2size > mp3_buffer.len() {

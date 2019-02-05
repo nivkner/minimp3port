@@ -118,13 +118,7 @@ fn compare_buffers(
     ref_buffer: &[i16],
 ) -> (f64, i32) {
     let mut pcm: [i16; 2304] = [0; 2304];
-    let mut frame_info = FrameInfo {
-        frame_bytes: 0,
-        channels: 0,
-        hz: 0,
-        layer: 0,
-        bitrate_kbps: 0,
-    };
+    let mut frame_info = FrameInfo::default();
     let mut mse = 0.0;
     let mut maxdiff = 0;
     let id3v2size = skip_id3v2(buf);

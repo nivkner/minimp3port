@@ -11,7 +11,7 @@ pub struct Decoder {
     pub reserv_buf: [u8; 511],
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct FrameInfo {
     pub frame_bytes: i32,
     pub channels: i32,

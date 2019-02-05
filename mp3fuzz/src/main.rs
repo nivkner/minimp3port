@@ -3,13 +3,7 @@ use minimp3port::{decode_frame, MINIMP3_MAX_SAMPLES_PER_FRAME};
 
 fn main() {
     let mut pcm = [0; MINIMP3_MAX_SAMPLES_PER_FRAME as usize];
-    let mut info = minimp3port::FrameInfo {
-        frame_bytes: 0,
-        channels: 0,
-        hz: 0,
-        layer: 0,
-        bitrate_kbps: 0,
-    };;
+    let mut info = minimp3port::FrameInfo::default();
     let mut decoder = minimp3port::Decoder::default();
 
     loop {
