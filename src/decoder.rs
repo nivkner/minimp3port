@@ -1,14 +1,18 @@
 use crate::header;
-use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
+use crate::{
+    HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE, MINIMP3_MAX_SAMPLES_PER_FRAME,
+};
 
 #[derive(Copy, Clone)]
 pub struct Decoder {
-    pub mdct_overlap: [[f32; 288]; 2],
-    pub qmf_state: [f32; 960],
-    pub reserv: i32,
-    pub free_format_bytes: i32,
-    pub header: [u8; 4],
-    pub reserv_buf: [u8; 511],
+    pub(crate) mdct_overlap: [[f32; 288]; 2],
+    pub(crate) qmf_state: [f32; 960],
+    pub(crate) reserv: i32,
+    pub(crate) free_format_bytes: i32,
+    pub(crate) header: [u8; 4],
+    pub(crate) reserv_buf: [u8; 511],
+    pub(crate) pcm: [i16; 2304],
+    pub(crate) num_samples: usize,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -48,7 +52,15 @@ impl Default for Decoder {
             free_format_bytes: 0,
             header: [0; 4],
             reserv_buf: [0; 511],
+            pcm: [0; MINIMP3_MAX_SAMPLES_PER_FRAME],
+            num_samples: 0,
         }
+    }
+}
+
+impl Decoder {
+    pub fn get_pcm(&self) -> &[i16] {
+        &self.pcm[..self.num_samples]
     }
 }
 

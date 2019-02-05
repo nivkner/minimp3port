@@ -117,8 +117,6 @@ fn compare_buffers(
     info: &mut FileInfo,
     ref_buffer: &[i16],
 ) -> (f64, i32) {
-    let mut pcm: [i16; 2304] = [0; 2304];
-    let mut frame_info = FrameInfo::default();
     let mut mse = 0.0;
     let mut maxdiff = 0;
     let id3v2size = skip_id3v2(buf);
@@ -126,19 +124,17 @@ fn compare_buffers(
         return (mse, maxdiff);
     }
     let mut buf_slice = &buf[(id3v2size as usize)..];
-    let mut samples: i32;
-    loop {
-        samples = decode_frame(dec, buf_slice, &mut pcm, &mut frame_info);
+    let (samples, frame_info) = loop {
+        let frame_info = decode_frame(dec, buf_slice);
+        let samples = dec.get_pcm().len();
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
-        if 0 != samples || frame_info.frame_bytes == 0 {
-            break;
+        if 0 != samples {
+            break (samples, frame_info);
+        } else if frame_info.frame_bytes == 0 {
+            return (mse, maxdiff);
         }
-    }
-    if 0 == samples {
-        return (mse, maxdiff);
-    }
-    samples *= frame_info.channels;
-    info.samples = samples as usize;
+    };
+    info.samples = dec.get_pcm().len();
     // save info
     info.channels = frame_info.channels;
     info.hz = frame_info.hz;
@@ -148,15 +144,15 @@ fn compare_buffers(
     // decode rest frames
     let mut total = samples as usize;
     if !ref_buffer.is_empty() {
-        let (m, diff) = get_mse(total, &pcm[..(samples as usize)], ref_buffer);
+        let (m, diff) = get_mse(total, dec.get_pcm(), ref_buffer);
         mse += m;
         if diff > maxdiff {
             maxdiff = diff;
         }
     }
     loop {
-        samples = decode_frame(dec, buf_slice, &mut pcm, &mut frame_info);
-        let all_samples = samples as usize * frame_info.channels as usize;
+        let frame_info = decode_frame(dec, buf_slice);
+        let all_samples = dec.get_pcm().len();
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
 
         let ref_slice = if total < ref_buffer.len() {
@@ -166,14 +162,14 @@ fn compare_buffers(
         };
 
         if !ref_buffer.is_empty() {
-            let (m, diff) = get_mse(all_samples, &pcm[..(all_samples)], ref_slice);
+            let (m, diff) = get_mse(all_samples, dec.get_pcm(), ref_slice);
             mse += m;
             if diff > maxdiff {
                 maxdiff = diff;
             }
         }
         total += all_samples;
-        if 0 != samples {
+        if !dec.get_pcm().is_empty() {
             if info.hz != frame_info.hz || info.layer != frame_info.layer {
                 break;
             }
@@ -181,7 +177,7 @@ fn compare_buffers(
                 // mark file with mono-stereo transition
                 info.channels = 0i32
             }
-            info.samples += (samples * frame_info.channels) as usize;
+            info.samples += all_samples;
             avg_bitrate_kbps += frame_info.bitrate_kbps as usize;
             frames += 1;
         }
@@ -214,7 +210,7 @@ fn get_mse(samples: usize, frame_buf: &[i16], buf_ref: &[i16]) -> (f64, i32) {
             let ref_res = buf_ref[i];
             let info_res = frame_buf[i as usize];
             let diff = (ref_res - info_res).abs();
-            if diff as i32 > maxdiff {
+            if i32::from(diff) as i32 > maxdiff {
                 maxdiff = diff.into()
             }
             mse += f64::from(diff.pow(2));
@@ -247,7 +243,7 @@ fn decode(input_buffer: &[u8], buf: &[u8], expected_samples: usize, expected_sam
     let psnr = if mse == 0.0 {
         99.0
     } else {
-        10.0 * (0x7fffu32.pow(2) as f64 / mse).log10()
+        10.0 * (f64::from(0x7fffu32.pow(2)) / mse).log10()
     };
     assert_eq!(info.hz as usize, expected_sample_rate, "sample rate");
     assert_eq!(info.samples, expected_samples, "number of samples");

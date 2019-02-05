@@ -4,7 +4,7 @@ use libpulse_binding::sample;
 use libpulse_binding::stream::Direction;
 use libpulse_simple_binding::Simple;
 
-use minimp3port::{decode_frame, Decoder, FrameInfo};
+use minimp3port::{decode_frame, Decoder};
 
 use std::env;
 use std::fs::File;
@@ -19,8 +19,6 @@ fn main() {
         .expect("failed to read file");
 
     let mut decoder = Decoder::default();
-    let mut pcm: [i16; 2304] = [0; 2304];
-    let mut frame_info = FrameInfo::default();
 
     let id3v2size = skip_id3v2(&mp3_buffer);
     if id3v2size > mp3_buffer.len() {
@@ -29,19 +27,17 @@ fn main() {
 
     // find the first frame
     let mut buf_slice = &mp3_buffer[(id3v2size as usize)..];
-    let samples = loop {
-        let samples = decode_frame(&mut decoder, buf_slice, &mut pcm, &mut frame_info);
+    let frame_info = loop {
+        let frame_info = decode_frame(&mut decoder, buf_slice);
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
-        if 0 != samples || frame_info.frame_bytes == 0 {
-            break samples;
+        if !decoder.get_pcm().is_empty() {
+            break frame_info;
+        } else if frame_info.frame_bytes == 0 {
+            panic!("not enough samples");
         }
     };
-    if 0 == samples {
-        panic!("not enough samples");
-    }
 
     // save info to start the stream
-    let init_samples = (samples * frame_info.channels) as usize;
     let spec = sample::Spec {
         format: sample::SAMPLE_S16NE,
         channels: frame_info.channels as u8,
@@ -63,21 +59,29 @@ fn main() {
 
     // the PCM is in i16 so we convert it to u8 so it can be written to pulseaudio
     let mut bytes = [0; 2304 * 2];
-    LittleEndian::write_i16_into(&pcm[..init_samples], &mut bytes[..(init_samples * 2)]);
+    LittleEndian::write_i16_into(
+        decoder.get_pcm(),
+        &mut bytes[..(decoder.get_pcm().len() * 2)],
+    );
     simple
-        .write(&bytes[..(init_samples * 2)])
+        .write(&bytes[..(decoder.get_pcm().len() * 2)])
         .expect("couldn't write to pulse audio");
 
     // write the rest of the buffer
-    while frame_info.frame_bytes != 0 {
-        let samples = decode_frame(&mut decoder, buf_slice, &mut pcm, &mut frame_info);
-        let all_samples = samples as usize * frame_info.channels as usize;
+    loop {
+        let frame_info = decode_frame(&mut decoder, buf_slice);
+        if frame_info.frame_bytes == 0 {
+            break;
+        }
+        let all_samples = decoder.get_pcm().len();
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
 
-        LittleEndian::write_i16_into(&pcm[..all_samples], &mut bytes[..(all_samples * 2)]);
-        simple
-            .write(&bytes[..(init_samples * 2)])
-            .expect("couldn't write to pulse audio");
+        LittleEndian::write_i16_into(decoder.get_pcm(), &mut bytes[..(all_samples * 2)]);
+        if all_samples > 0 {
+            simple
+                .write(&bytes[..(all_samples * 2)])
+                .expect("couldn't write to pulse audio");
+        }
     }
 
     // drain whatever data is left on pulseaudio

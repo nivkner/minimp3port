@@ -14,7 +14,7 @@ use crate::layers12::ScaleInfo;
 
 pub use crate::decoder::{Decoder, FrameInfo};
 
-pub const MINIMP3_MAX_SAMPLES_PER_FRAME: i32 = 1152 * 2;
+const MINIMP3_MAX_SAMPLES_PER_FRAME: usize = 1152 * 2;
 const HDR_SIZE: usize = 4;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
@@ -26,12 +26,10 @@ const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
 const MODE_MONO: u8 = 3;
 const MODE_JOINT_STEREO: u8 = 1;
 
-pub fn decode_frame(
-    decoder: &mut Decoder,
-    mp3: &[u8],
-    pcm: &mut [i16],
-    info: &mut FrameInfo,
-) -> i32 {
+pub fn decode_frame(decoder: &mut Decoder, mp3: &[u8]) -> FrameInfo {
+    let mut info = FrameInfo::default();
+    // reset the number of samples in the decoder, existing samples are ignored
+    decoder.num_samples = 0;
     let mut frame_size = 0;
     if mp3.len() > 4 && decoder.header[0] == 0xff && header::compare(&decoder.header, mp3) {
         frame_size = header::frame_bytes(mp3, decoder.free_format_bytes) + header::padding(mp3);
@@ -51,7 +49,7 @@ pub fn decode_frame(
         i = decoder::find_frame(mp3, &mut decoder.free_format_bytes, &mut frame_size);
         if frame_size == 0 || i + frame_size > mp3.len() as _ {
             info.frame_bytes = i;
-            return 0;
+            return info;
         }
     }
 
@@ -76,7 +74,7 @@ pub fn decode_frame(
         let main_data_begin = layer3::read_side_info(&mut bs_frame, &mut gr_info, hdr);
         if main_data_begin < 0 || bs_frame.position > bs_frame.limit {
             decoder_init(decoder);
-            return 0;
+            return info;
         }
 
         let mut main_data = [0; 2815];
@@ -99,7 +97,7 @@ pub fn decode_frame(
                     &mut scratch.grbuf,
                     18,
                     info.channels as usize,
-                    &mut pcm[pcm_pos..],
+                    &mut decoder.pcm[pcm_pos..],
                     &mut scratch.syn,
                 );
                 pcm_pos += 576 * info.channels as usize;
@@ -107,7 +105,7 @@ pub fn decode_frame(
             layer3::save_reservoir(decoder, &mut scratch_bs);
         } else {
             layer3::save_reservoir(decoder, &mut scratch_bs);
-            return 0;
+            return info;
         }
     } else {
         let mut sci = ScaleInfo {
@@ -134,7 +132,7 @@ pub fn decode_frame(
                     &mut scratch.grbuf,
                     12,
                     info.channels as usize,
-                    &mut pcm[pcm_pos..],
+                    &mut decoder.pcm[pcm_pos..],
                     &mut scratch.syn,
                 );
                 scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
@@ -142,11 +140,12 @@ pub fn decode_frame(
             }
             if bs_frame.position > bs_frame.limit {
                 decoder_init(decoder);
-                return 0;
+                return info;
             }
         }
     }
-    header::frame_samples(&decoder.header)
+    decoder.num_samples = (header::frame_samples(&decoder.header) * info.channels) as usize;
+    info
 }
 
 fn decoder_init(dec: &mut Decoder) {
