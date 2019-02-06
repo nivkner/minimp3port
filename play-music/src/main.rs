@@ -15,21 +15,23 @@ fn main() {
     let mp3_name = env::args_os().nth(1).expect("missing mp3 file name");
     let mut file = File::open(mp3_name).expect("couldn't open mp3 file");
     let mut mp3_buffer = Vec::new();
-    file.read_to_end(&mut mp3_buffer)
-        .expect("failed to read file");
+    let mut temp_buffer = [0; 2048];
+    let mut amount = file.read(&mut temp_buffer).expect("failed to read file");
+    mp3_buffer.extend_from_slice(&temp_buffer[..amount]);
 
     let mut decoder = Decoder::default();
 
+    // skip the file metadata
     let id3v2size = skip_id3v2(&mp3_buffer);
     if id3v2size > mp3_buffer.len() {
         panic!("too much id3v2");
     }
 
     // find the first frame
-    let mut buf_slice = &mp3_buffer[(id3v2size as usize)..];
+    let mut offset = id3v2size;
     let frame_info = loop {
-        let frame_info = decoder.decode_frame(buf_slice);
-        buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
+        let frame_info = decoder.decode_frame(&mp3_buffer[offset..]);
+        offset += frame_info.frame_bytes as usize;
         if !decoder.get_pcm().is_empty() {
             break frame_info;
         } else if frame_info.frame_bytes == 0 {
@@ -69,18 +71,31 @@ fn main() {
 
     // write the rest of the buffer
     loop {
-        let frame_info = decoder.decode_frame(buf_slice);
+        let frame_info = decoder.decode_frame(&mp3_buffer[offset..]);
+
         if frame_info.frame_bytes == 0 {
             break;
         }
-        let all_samples = decoder.get_pcm().len();
-        buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
+        offset += frame_info.frame_bytes as usize;
 
-        LittleEndian::write_i16_into(decoder.get_pcm(), &mut bytes[..(all_samples * 2)]);
-        if all_samples > 0 {
+        let samples = decoder.get_pcm().len();
+        LittleEndian::write_i16_into(decoder.get_pcm(), &mut bytes[..(samples * 2)]);
+
+        // it is invalid to write a slice of 0 bytes to pulseaudio
+        if samples > 0 {
             simple
-                .write(&bytes[..(all_samples * 2)])
+                .write(&bytes[..(samples * 2)])
                 .expect("couldn't write to pulse audio");
+        }
+
+        // make sure we have enough new bytes to decode
+        if (offset + frame_info.frame_bytes as usize) > amount {
+            amount = file.read(&mut temp_buffer).expect("failed to read file");
+
+            // remove the data that was already read from the buffer, to make room for more
+            mp3_buffer.drain(0..offset);
+            offset = 0;
+            mp3_buffer.extend_from_slice(&temp_buffer[..amount]);
         }
     }
 
