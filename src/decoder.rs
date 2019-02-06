@@ -1,36 +1,5 @@
 use crate::header;
-use crate::{
-    HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE, MINIMP3_MAX_SAMPLES_PER_FRAME,
-};
-
-#[derive(Copy, Clone)]
-/// a struct used to decode mp3, contains the samples once they are decoded.
-/// should be reused for all frames from the same file.
-pub struct Decoder {
-    pub(crate) mdct_overlap: [[f32; 288]; 2],
-    pub(crate) qmf_state: [f32; 960],
-    pub(crate) reserv: i32,
-    pub(crate) free_format_bytes: i32,
-    pub(crate) header: [u8; 4],
-    pub(crate) reserv_buf: [u8; 511],
-    pub(crate) pcm: [i16; 2304],
-    pub(crate) num_samples: usize,
-}
-
-#[derive(Copy, Clone, Default)]
-/// information about the decoded frame
-pub struct FrameInfo {
-    /// the number of bytes that were processed by the decoder from the mp3 buffer
-    pub frame_bytes: i32,
-    /// the number of channels in the frame
-    pub channels: i32,
-    /// the sample rate of the frame
-    pub hz: i32,
-    /// the audio format of the frame, can be layers 1, 2, or 3
-    pub layer: i32,
-    /// the bitrate of the frame, measured in kilobytes per second
-    pub bitrate_kbps: i32,
-}
+use crate::{HDR_SIZE, MAX_FRAME_SYNC_MATCHES, MAX_FREE_FORMAT_FRAME_SIZE};
 
 #[derive(Copy, Clone)]
 pub struct Scratch {
@@ -48,29 +17,6 @@ impl Default for Scratch {
             syn: [0.0; 64 * 33],
             ist_pos: [[0; 39]; 2],
         }
-    }
-}
-
-impl Default for Decoder {
-    fn default() -> Self {
-        Decoder {
-            mdct_overlap: [[0.; 288]; 2],
-            qmf_state: [0.; 960],
-            reserv: 0,
-            free_format_bytes: 0,
-            header: [0; 4],
-            reserv_buf: [0; 511],
-            pcm: [0; MINIMP3_MAX_SAMPLES_PER_FRAME],
-            num_samples: 0,
-        }
-    }
-}
-
-impl Decoder {
-    /// returns a slice of signed 16 bit little endian samples
-    /// that were produces the last time an mp3 buffer was read
-    pub fn get_pcm(&self) -> &[i16] {
-        &self.pcm[..self.num_samples]
     }
 }
 

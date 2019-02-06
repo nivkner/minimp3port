@@ -1,8 +1,9 @@
 use core::cmp;
 
 use crate::bits::BitStream;
-use crate::decoder::{Decoder, Scratch};
+use crate::decoder::Scratch;
 use crate::header;
+use crate::Decoder;
 use crate::{BITS_DEQUANTIZER_OUT, MAX_BITRESERVOIR_BYTES, MAX_SCFI, SHORT_BLOCK_TYPE};
 
 #[derive(Copy, Clone, Default)]

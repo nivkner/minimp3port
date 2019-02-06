@@ -125,7 +125,7 @@ fn compare_buffers(
     }
     let mut buf_slice = &buf[(id3v2size as usize)..];
     let (samples, frame_info) = loop {
-        let frame_info = decode_frame(dec, buf_slice);
+        let frame_info = dec.decode_frame(buf_slice);
         let samples = dec.get_pcm().len();
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
         if 0 != samples {
@@ -151,7 +151,7 @@ fn compare_buffers(
         }
     }
     loop {
-        let frame_info = decode_frame(dec, buf_slice);
+        let frame_info = dec.decode_frame(buf_slice);
         let all_samples = dec.get_pcm().len();
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
 

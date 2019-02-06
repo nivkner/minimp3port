@@ -4,7 +4,7 @@ use libpulse_binding::sample;
 use libpulse_binding::stream::Direction;
 use libpulse_simple_binding::Simple;
 
-use minimp3port::{decode_frame, Decoder};
+use minimp3port::Decoder;
 
 use std::env;
 use std::fs::File;
@@ -28,7 +28,7 @@ fn main() {
     // find the first frame
     let mut buf_slice = &mp3_buffer[(id3v2size as usize)..];
     let frame_info = loop {
-        let frame_info = decode_frame(&mut decoder, buf_slice);
+        let frame_info = decoder.decode_frame(buf_slice);
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
         if !decoder.get_pcm().is_empty() {
             break frame_info;
@@ -69,7 +69,7 @@ fn main() {
 
     // write the rest of the buffer
     loop {
-        let frame_info = decode_frame(&mut decoder, buf_slice);
+        let frame_info = decoder.decode_frame(buf_slice);
         if frame_info.frame_bytes == 0 {
             break;
         }
