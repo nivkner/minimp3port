@@ -26,6 +26,7 @@ const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
 const MODE_MONO: u8 = 3;
 const MODE_JOINT_STEREO: u8 = 1;
 
+/// decode an mp3 buffer with a given Decoder, should be atleast the size of a single frame
 pub fn decode_frame(decoder: &mut Decoder, mp3: &[u8]) -> FrameInfo {
     let mut info = FrameInfo::default();
     // reset the number of samples in the decoder, existing samples are ignored

@@ -4,6 +4,8 @@ use crate::{
 };
 
 #[derive(Copy, Clone)]
+/// a struct used to decode mp3, contains the samples once they are decoded.
+/// should be reused for all frames from the same file.
 pub struct Decoder {
     pub(crate) mdct_overlap: [[f32; 288]; 2],
     pub(crate) qmf_state: [f32; 960],
@@ -16,11 +18,17 @@ pub struct Decoder {
 }
 
 #[derive(Copy, Clone, Default)]
+/// information about the decoded frame
 pub struct FrameInfo {
+    /// the number of bytes that were processed by the decoder from the mp3 buffer
     pub frame_bytes: i32,
+    /// the number of channels in the frame
     pub channels: i32,
+    /// the sample rate of the frame
     pub hz: i32,
+    /// the audio format of the frame, can be layers 1, 2, or 3
     pub layer: i32,
+    /// the bitrate of the frame, measured in kilobytes per second
     pub bitrate_kbps: i32,
 }
 
@@ -59,6 +67,8 @@ impl Default for Decoder {
 }
 
 impl Decoder {
+    /// returns a slice of signed 16 bit little endian samples
+    /// that were produces the last time an mp3 buffer was read
     pub fn get_pcm(&self) -> &[i16] {
         &self.pcm[..self.num_samples]
     }
