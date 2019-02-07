@@ -25,7 +25,7 @@ const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
 const MODE_MONO: u8 = 3;
 const MODE_JOINT_STEREO: u8 = 1;
 
-/// a struct used to decode mp3, contains the samples once they are decoded.
+/// a struct used to decode mp3 buffers.
 /// should be reused for all frames from the same file.
 pub struct Decoder {
     pub(crate) mdct_overlap: [[f32; 288]; 2],
@@ -39,18 +39,45 @@ pub struct Decoder {
 #[derive(Copy, Clone)]
 /// information about the decoded frame
 pub struct FrameInfo {
-    /// the number of bytes that were processed by the decoder from the mp3 buffer
-    pub frame_bytes: i32,
-    /// the number of channels in the frame
-    pub channels: i32,
-    /// the sample rate of the frame
-    pub hz: i32,
-    /// the audio format of the frame, can be layers 1, 2, or 3
-    pub layer: i32,
-    /// the bitrate of the frame, measured in kilobytes per second
-    pub bitrate_kbps: i32,
-    /// the number of samples decoded from the frame
-    pub samples: usize,
+    pub(crate) frame_bytes: i32,
+    pub(crate) channels: i32,
+    pub(crate) hz: i32,
+    pub(crate) layer: i32,
+    pub(crate) bitrate_kbps: i32,
+    pub(crate) samples: usize,
+}
+
+impl FrameInfo {
+    /// the number of bytes that were processed by the decoder.
+    /// if the decoder processes non-audio data, it would still be included
+    pub fn frame_bytes(&self) -> usize {
+        self.frame_bytes as usize
+    }
+
+    /// the number of samples that were decoded
+    pub fn samples(&self) -> usize {
+        self.samples
+    }
+
+    /// the sample rate in Hz
+    pub fn sample_rate(&self) -> u32 {
+        self.hz as u32
+    }
+
+    /// the bitrate, measured in kilobytes per second
+    pub fn bitrate(&self) -> u32 {
+        self.bitrate_kbps as u32
+    }
+
+    /// the number of audio channels
+    pub fn channels(&self) -> u8 {
+        self.channels as u8
+    }
+
+    /// the audio format, can be layers 1, 2, or 3
+    pub fn layer(&self) -> u8 {
+        self.layer as u8
+    }
 }
 
 impl Default for Decoder {
@@ -73,7 +100,7 @@ impl Decoder {
     }
 
     /// decode a frame out of a mp3 buffer, and stores the PCM output in a given buffer.
-    /// the PCM buffer should be at least MINIMP3_MAX_SAMPLES_PER_FRAME in length
+    /// the PCM buffer should be at least `MINIMP3_MAX_SAMPLES_PER_FRAME` in length
     pub fn decode_frame(&mut self, mp3: &[u8], pcm: &mut [i16]) -> FrameInfo {
         let mut info = FrameInfo {
             frame_bytes: 0,

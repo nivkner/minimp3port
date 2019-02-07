@@ -127,25 +127,25 @@ fn compare_buffers(
     let mut buf_slice = &buf[(id3v2size as usize)..];
     let (samples, frame_info) = loop {
         let frame_info = dec.decode_frame(buf_slice, &mut pcm);
-        let samples = frame_info.samples;
-        buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
+        let samples = frame_info.samples();
+        buf_slice = &buf_slice[frame_info.frame_bytes()..];
         if 0 != samples {
             break (samples, frame_info);
-        } else if frame_info.frame_bytes == 0 {
+        } else if frame_info.frame_bytes() == 0 {
             return (mse, maxdiff);
         }
     };
-    info.samples = frame_info.samples;
+    info.samples = frame_info.samples();
     // save info
-    info.channels = frame_info.channels;
-    info.hz = frame_info.hz;
-    info.layer = frame_info.layer;
-    let mut avg_bitrate_kbps: usize = frame_info.bitrate_kbps as usize;
-    let mut frames: usize = 1i32 as usize;
+    info.channels = frame_info.channels().into();
+    info.hz = frame_info.sample_rate() as i32;
+    info.layer = frame_info.layer().into();
+    let mut avg_bitrate_kbps: usize = frame_info.bitrate() as usize;
+    let mut frames: usize = 1;
     // decode rest frames
     let mut total = samples as usize;
     if !ref_buffer.is_empty() {
-        let (m, diff) = get_mse(total, &pcm[..frame_info.samples], ref_buffer);
+        let (m, diff) = get_mse(total, &pcm[..frame_info.samples()], ref_buffer);
         mse += m;
         if diff > maxdiff {
             maxdiff = diff;
@@ -153,8 +153,8 @@ fn compare_buffers(
     }
     loop {
         let frame_info = dec.decode_frame(buf_slice, &mut pcm);
-        let all_samples = frame_info.samples;
-        buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
+        let all_samples = frame_info.samples();
+        buf_slice = &buf_slice[frame_info.frame_bytes()..];
 
         let ref_slice = if total < ref_buffer.len() {
             &ref_buffer[total..]
@@ -170,19 +170,20 @@ fn compare_buffers(
             }
         }
         total += all_samples;
-        if frame_info.samples > 0 {
-            if info.hz != frame_info.hz || info.layer != frame_info.layer {
-                break;
+        if frame_info.samples() > 0 {
+            if info.hz != frame_info.sample_rate() as i32 || info.layer != frame_info.layer().into()
+            {
+                panic!("mismatch between frames");
             }
-            if 0 != info.channels && info.channels != frame_info.channels {
+            if 0 != info.channels && info.channels != frame_info.channels().into() {
                 // mark file with mono-stereo transition
                 info.channels = 0i32
             }
             info.samples += all_samples;
-            avg_bitrate_kbps += frame_info.bitrate_kbps as usize;
+            avg_bitrate_kbps += frame_info.bitrate() as usize;
             frames += 1;
         }
-        if 0 == frame_info.frame_bytes {
+        if 0 == frame_info.frame_bytes() {
             break;
         }
     }

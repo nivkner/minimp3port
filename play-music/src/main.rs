@@ -32,10 +32,10 @@ fn main() {
     let mut offset = id3v2size;
     let frame_info = loop {
         let frame_info = decoder.decode_frame(&mp3_buffer[offset..], &mut pcm);
-        offset += frame_info.frame_bytes as usize;
-        if frame_info.samples > 0 {
+        offset += frame_info.frame_bytes();
+        if frame_info.samples() > 0 {
             break frame_info;
-        } else if frame_info.frame_bytes == 0 {
+        } else if frame_info.frame_bytes() == 0 {
             panic!("not enough samples");
         }
     };
@@ -43,8 +43,8 @@ fn main() {
     // save info to start the stream
     let spec = sample::Spec {
         format: sample::SAMPLE_S16NE,
-        channels: frame_info.channels as u8,
-        rate: frame_info.hz as u32,
+        channels: frame_info.channels(),
+        rate: frame_info.sample_rate(),
     };
 
     assert!(spec.is_valid());
@@ -63,24 +63,24 @@ fn main() {
     // the PCM is in i16 so we convert it to u8 so it can be written to pulseaudio
     let mut bytes = [0; 2304 * 2];
     LittleEndian::write_i16_into(
-        &pcm[..frame_info.samples],
-        &mut bytes[..(frame_info.samples * 2)],
+        &pcm[..frame_info.samples()],
+        &mut bytes[..(frame_info.samples() * 2)],
     );
     simple
-        .write(&bytes[..(frame_info.samples * 2)])
+        .write(&bytes[..(frame_info.samples() * 2)])
         .expect("couldn't write to pulse audio");
 
     // write the rest of the buffer
     loop {
         let frame_info = decoder.decode_frame(&mp3_buffer[offset..], &mut pcm);
 
-        if frame_info.frame_bytes == 0 {
+        if frame_info.frame_bytes() == 0 {
             break;
         }
-        offset += frame_info.frame_bytes as usize;
+        offset += frame_info.frame_bytes();
 
-        let samples = frame_info.samples;
-        LittleEndian::write_i16_into(&pcm[..frame_info.samples], &mut bytes[..(samples * 2)]);
+        let samples = frame_info.samples();
+        LittleEndian::write_i16_into(&pcm[..frame_info.samples()], &mut bytes[..(samples * 2)]);
 
         // it is invalid to write a slice of 0 bytes to pulseaudio
         if samples > 0 {
@@ -90,7 +90,7 @@ fn main() {
         }
 
         // make sure we have enough new bytes to decode
-        if (offset + frame_info.frame_bytes as usize) > amount {
+        if offset + frame_info.frame_bytes() > amount {
             amount = file.read(&mut temp_buffer).expect("failed to read file");
 
             // remove the data that was already read from the buffer, to make room for more
