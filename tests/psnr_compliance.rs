@@ -119,14 +119,15 @@ fn compare_buffers(
 ) -> (f64, i32) {
     let mut mse = 0.0;
     let mut maxdiff = 0;
+    let mut pcm = [0; MINIMP3_MAX_SAMPLES_PER_FRAME];
     let id3v2size = skip_id3v2(buf);
     if id3v2size > buf.len() {
         return (mse, maxdiff);
     }
     let mut buf_slice = &buf[(id3v2size as usize)..];
     let (samples, frame_info) = loop {
-        let frame_info = dec.decode_frame(buf_slice);
-        let samples = dec.get_pcm().len();
+        let frame_info = dec.decode_frame(buf_slice, &mut pcm);
+        let samples = frame_info.samples;
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
         if 0 != samples {
             break (samples, frame_info);
@@ -134,7 +135,7 @@ fn compare_buffers(
             return (mse, maxdiff);
         }
     };
-    info.samples = dec.get_pcm().len();
+    info.samples = frame_info.samples;
     // save info
     info.channels = frame_info.channels;
     info.hz = frame_info.hz;
@@ -144,15 +145,15 @@ fn compare_buffers(
     // decode rest frames
     let mut total = samples as usize;
     if !ref_buffer.is_empty() {
-        let (m, diff) = get_mse(total, dec.get_pcm(), ref_buffer);
+        let (m, diff) = get_mse(total, &pcm[..frame_info.samples], ref_buffer);
         mse += m;
         if diff > maxdiff {
             maxdiff = diff;
         }
     }
     loop {
-        let frame_info = dec.decode_frame(buf_slice);
-        let all_samples = dec.get_pcm().len();
+        let frame_info = dec.decode_frame(buf_slice, &mut pcm);
+        let all_samples = frame_info.samples;
         buf_slice = &buf_slice[(frame_info.frame_bytes as usize)..];
 
         let ref_slice = if total < ref_buffer.len() {
@@ -162,14 +163,14 @@ fn compare_buffers(
         };
 
         if !ref_buffer.is_empty() {
-            let (m, diff) = get_mse(all_samples, dec.get_pcm(), ref_slice);
+            let (m, diff) = get_mse(all_samples, &pcm[..all_samples], ref_slice);
             mse += m;
             if diff > maxdiff {
                 maxdiff = diff;
             }
         }
         total += all_samples;
-        if !dec.get_pcm().is_empty() {
+        if frame_info.samples > 0 {
             if info.hz != frame_info.hz || info.layer != frame_info.layer {
                 break;
             }

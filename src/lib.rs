@@ -12,7 +12,8 @@ use crate::decoder::Scratch;
 use crate::layer3::GranuleInfo;
 use crate::layers12::ScaleInfo;
 
-const MINIMP3_MAX_SAMPLES_PER_FRAME: usize = 1152 * 2;
+/// the maximum number of samples that can be decoded from a single frame
+pub const MINIMP3_MAX_SAMPLES_PER_FRAME: usize = 1152 * 2;
 const HDR_SIZE: usize = 4;
 const MAX_FREE_FORMAT_FRAME_SIZE: i32 = 2304; // more than ISO spec's
 const MAX_FRAME_SYNC_MATCHES: i32 = 10;
@@ -24,7 +25,6 @@ const MAX_SCFI: i32 = (MAX_SCF + 3) & !3;
 const MODE_MONO: u8 = 3;
 const MODE_JOINT_STEREO: u8 = 1;
 
-#[derive(Copy, Clone)]
 /// a struct used to decode mp3, contains the samples once they are decoded.
 /// should be reused for all frames from the same file.
 pub struct Decoder {
@@ -34,11 +34,9 @@ pub struct Decoder {
     pub(crate) free_format_bytes: i32,
     pub(crate) header: [u8; 4],
     pub(crate) reserv_buf: [u8; 511],
-    pub(crate) pcm: [i16; 2304],
-    pub(crate) num_samples: usize,
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 /// information about the decoded frame
 pub struct FrameInfo {
     /// the number of bytes that were processed by the decoder from the mp3 buffer
@@ -51,6 +49,8 @@ pub struct FrameInfo {
     pub layer: i32,
     /// the bitrate of the frame, measured in kilobytes per second
     pub bitrate_kbps: i32,
+    /// the number of samples decoded from the frame
+    pub samples: usize,
 }
 
 impl Default for Decoder {
@@ -62,29 +62,27 @@ impl Default for Decoder {
             free_format_bytes: 0,
             header: [0; 4],
             reserv_buf: [0; 511],
-            pcm: [0; MINIMP3_MAX_SAMPLES_PER_FRAME],
-            num_samples: 0,
         }
     }
 }
 
 impl Decoder {
-    /// returns a slice of signed 16 bit little endian samples
-    /// that were produces the last time an mp3 buffer was read
-    pub fn get_pcm(&self) -> &[i16] {
-        &self.pcm[..self.num_samples]
-    }
-
     /// resets the state of the decoder to allow for its use for other mp3 files
     pub fn reset(&mut self) {
         self.header[0] = 0
     }
 
-    /// decode an mp3 buffer, should be atleast the size of a single frame
-    pub fn decode_frame(&mut self, mp3: &[u8]) -> FrameInfo {
-        let mut info = FrameInfo::default();
-        // reset the number of samples in the decoder, existing samples are ignored
-        self.num_samples = 0;
+    /// decode a frame out of a mp3 buffer, and stores the PCM output in a given buffer.
+    /// the PCM buffer should be at least MINIMP3_MAX_SAMPLES_PER_FRAME in length
+    pub fn decode_frame(&mut self, mp3: &[u8], pcm: &mut [i16]) -> FrameInfo {
+        let mut info = FrameInfo {
+            frame_bytes: 0,
+            channels: 0,
+            hz: 0,
+            layer: 0,
+            bitrate_kbps: 0,
+            samples: 0,
+        };
         let mut frame_size = 0;
         if mp3.len() > 4 && self.header[0] == 0xff && header::compare(&self.header, mp3) {
             frame_size = header::frame_bytes(mp3, self.free_format_bytes) + header::padding(mp3);
@@ -156,7 +154,7 @@ impl Decoder {
                         &mut scratch.grbuf,
                         18,
                         info.channels as usize,
-                        &mut self.pcm[pcm_pos..],
+                        &mut pcm[pcm_pos..],
                         &mut scratch.syn,
                     );
                     pcm_pos += 576 * info.channels as usize;
@@ -191,7 +189,7 @@ impl Decoder {
                         &mut scratch.grbuf,
                         12,
                         info.channels as usize,
-                        &mut self.pcm[pcm_pos..],
+                        &mut pcm[pcm_pos..],
                         &mut scratch.syn,
                     );
                     scratch.grbuf.copy_from_slice(&[0.0; 576 * 2]);
@@ -203,7 +201,7 @@ impl Decoder {
                 }
             }
         }
-        self.num_samples = (header::frame_samples(&self.header) * info.channels) as usize;
+        info.samples = (header::frame_samples(&self.header) * info.channels) as usize;
         info
     }
 }
