@@ -26,7 +26,6 @@ const MODE_MONO: u8 = 3;
 const MODE_JOINT_STEREO: u8 = 1;
 
 /// a struct used to decode mp3 buffers.
-/// should be reused for all frames from the same file.
 pub struct Decoder {
     pub(crate) mdct_overlap: [[f32; 288]; 2],
     pub(crate) qmf_state: [f32; 960],
@@ -94,8 +93,7 @@ impl Default for Decoder {
 }
 
 impl Decoder {
-    /// resets the state of the decoder to allow for its use for other mp3 files
-    pub fn reset(&mut self) {
+    fn reset_header(&mut self) {
         self.header[0] = 0
     }
 
@@ -153,7 +151,7 @@ impl Decoder {
             let mut gr_info = [GranuleInfo::default(); 4];
             let main_data_begin = layer3::read_side_info(&mut bs_frame, &mut gr_info, hdr);
             if main_data_begin < 0 || bs_frame.position > bs_frame.limit {
-                self.reset();
+                self.reset_header();
                 return info;
             }
 
@@ -223,7 +221,7 @@ impl Decoder {
                     pcm_pos += 384 * info.channels as usize;
                 }
                 if bs_frame.position > bs_frame.limit {
-                    self.reset();
+                    self.reset_header();
                     return info;
                 }
             }
